@@ -4,230 +4,317 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Race Display — Pinewood Derby</title>
-  <link rel="stylesheet" href="../styles.css" />
   <style>
-    body { overflow: hidden; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    .display-root {
-      display: grid;
-      grid-template-rows: auto 1fr;
-      height: 100vh;
+    :root {
+      --bg:       #0b0d14;
+      --surface:  #131620;
+      --card:     #1a1e2e;
+      --border:   #252a3d;
+      --amber:    #f59e0b;
+      --amber-dim:#7a4e06;
+      --text:     #e8eaf2;
+      --muted:    #6b738f;
+      --gold:     #ffd700;
+      --silver:   #b8bec8;
+      --bronze:   #cd7f32;
+      --green:    #22c55e;
     }
 
-    .display-header {
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    /* ── Header ── */
+    header {
       background: var(--surface);
-      border-bottom: 2px solid var(--accent);
-      padding: 14px 32px;
+      border-bottom: 1px solid var(--border);
+      padding: 0 40px;
+      height: 72px;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 24px;
     }
 
-    .display-header .event-title {
-      font-size: 1.6rem;
+    .hdr-brand {
+      display: flex;
+      flex-direction: column;
+    }
+    .hdr-brand .title {
+      font-size: 1.4rem;
       font-weight: 900;
-      color: var(--accent);
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--amber);
+      line-height: 1;
+    }
+    .hdr-brand .subtitle {
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    .hdr-heat {
+      text-align: center;
+      flex: 1;
+    }
+    .hdr-heat .heat-main {
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: var(--text);
+    }
+
+    .hdr-live {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.7rem;
+      font-weight: 700;
       letter-spacing: 2px;
       text-transform: uppercase;
+      color: var(--green);
+    }
+    .live-dot {
+      width: 8px; height: 8px;
+      background: var(--green);
+      border-radius: 50%;
+      animation: blink 2s ease-in-out infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.2; }
     }
 
-    .display-header .heat-info {
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--muted);
-      text-align: right;
-    }
-
+    /* ── Body ── */
     .display-body {
       display: grid;
       grid-template-columns: 55% 45%;
       overflow: hidden;
     }
 
-    /* ── Left: lanes ── */
-    .lanes-panel {
-      padding: 32px;
-      border-right: 1px solid var(--border);
+    /* ── Panel shared ── */
+    .panel {
+      padding: 28px 36px;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
+    .panel-left { border-right: 1px solid var(--border); }
 
-    .panel-title {
-      font-size: 0.9rem;
-      font-weight: 700;
-      letter-spacing: 3px;
+    .panel-label {
+      font-size: 0.65rem;
+      font-weight: 800;
+      letter-spacing: 4px;
       text-transform: uppercase;
       color: var(--muted);
-      margin-bottom: 20px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
     }
 
-    .lane-rows { display: flex; flex-direction: column; gap: 14px; flex: 1; }
+    /* ── Lane rows ── */
+    .lane-rows { display: flex; flex-direction: column; gap: 12px; flex: 1; }
 
     .lane-row {
       display: flex;
       align-items: center;
-      gap: 20px;
-      background: var(--surface);
+      gap: 0;
+      background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 18px 24px;
+      border-radius: 12px;
+      overflow: hidden;
       flex: 1;
     }
 
-    .lane-row .ln-label {
-      font-size: 0.85rem;
-      font-weight: 700;
+    .lane-stripe {
+      width: 6px;
+      align-self: stretch;
+      background: var(--amber);
+      flex-shrink: 0;
+    }
+    .lane-stripe.s1 { background: var(--gold); }
+    .lane-stripe.s2 { background: var(--silver); }
+    .lane-stripe.s3 { background: var(--bronze); }
+    .lane-stripe.s4 { background: #4f8ef7; }
+
+    .lane-inner {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 16px 24px;
+      flex: 1;
+    }
+
+    .ln-badge {
+      font-size: 0.7rem;
+      font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 1px;
       color: var(--muted);
-      min-width: 60px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      white-space: nowrap;
     }
 
-    .lane-row .ln-num {
-      font-size: 3rem;
+    .ln-num {
+      font-size: 3.2rem;
       font-weight: 900;
-      color: var(--accent);
+      color: var(--amber);
       line-height: 1;
-      min-width: 80px;
+      min-width: 72px;
       text-align: center;
     }
 
-    .lane-row .ln-name {
-      font-size: 1.8rem;
+    .ln-name {
+      font-size: 1.7rem;
       font-weight: 700;
+      color: var(--text);
       flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    /* ── Right: leaderboard ── */
-    .board-panel {
-      padding: 32px;
-      display: flex;
-      flex-direction: column;
-    }
-
+    /* ── Leaderboard rows ── */
     .board-rows { display: flex; flex-direction: column; gap: 10px; flex: 1; }
 
     .board-row {
       display: flex;
       align-items: center;
       gap: 16px;
-      background: var(--surface);
+      background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-left: 4px solid var(--border);
+      border-radius: 10px;
       padding: 14px 20px;
       flex: 1;
     }
+    .board-row.pos-1 { border-left-color: var(--gold);   }
+    .board-row.pos-2 { border-left-color: var(--silver); }
+    .board-row.pos-3 { border-left-color: var(--bronze); }
 
-    .board-row.pos-1 { border-color: #ffd700; background: #1a1600; }
-    .board-row.pos-2 { border-color: #c0c0c0; background: #141414; }
-    .board-row.pos-3 { border-color: #cd7f32; background: #160e06; }
-
-    .board-row .bd-pos {
-      font-size: 1.8rem;
-      font-weight: 900;
-      min-width: 44px;
-      color: var(--muted);
-    }
-
-    .board-row.pos-1 .bd-pos { color: #ffd700; }
-    .board-row.pos-2 .bd-pos { color: #c0c0c0; }
-    .board-row.pos-3 .bd-pos { color: #cd7f32; }
-
-    .board-row .bd-carnum {
-      font-size: 1.8rem;
-      font-weight: 900;
-      color: var(--accent);
-      min-width: 60px;
-    }
-
-    .board-row .bd-name {
-      flex: 1;
-      font-size: 1.3rem;
-      font-weight: 700;
-    }
-
-    .board-row .bd-pts {
-      font-size: 1.2rem;
+    .bd-rank {
+      font-size: 0.7rem;
       font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
       color: var(--muted);
-      text-align: right;
+      min-width: 32px;
+      text-align: center;
+    }
+    .board-row.pos-1 .bd-rank { color: var(--gold); font-size: 1.3rem; }
+    .board-row.pos-2 .bd-rank { color: var(--silver); font-size: 1.3rem; }
+    .board-row.pos-3 .bd-rank { color: var(--bronze); font-size: 1.3rem; }
+
+    .bd-carnum {
+      font-size: 1.5rem;
+      font-weight: 900;
+      color: var(--amber);
+      min-width: 54px;
+      text-align: center;
     }
 
-    /* ── Waiting state ── */
-    .waiting {
+    .bd-name {
+      flex: 1;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bd-pts {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    /* ── Empty / waiting states ── */
+    .idle-state {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100%;
-      gap: 16px;
+      flex: 1;
+      gap: 14px;
+      color: var(--muted);
+    }
+    .idle-state .idle-icon {
+      font-size: 4rem;
+      opacity: 0.4;
+    }
+    .idle-state p {
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: 1px;
     }
 
-    .waiting .big-icon { font-size: 6rem; }
-    .waiting h2 { font-size: 2rem; color: var(--muted); }
-
-    /* ── Ticker ── */
-    .refresh-dot {
-      width: 8px; height: 8px;
-      background: var(--success);
-      border-radius: 50%;
-      display: inline-block;
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.2; }
-    }
-
-    @media (max-width: 800px) {
+    @media (max-width: 900px) {
       .display-body { grid-template-columns: 1fr; overflow: auto; }
       body { overflow: auto; }
-      .lane-row .ln-num  { font-size: 2rem; }
-      .lane-row .ln-name { font-size: 1.2rem; }
+      .ln-num  { font-size: 2.2rem !important; }
+      .ln-name { font-size: 1.2rem !important; }
     }
   </style>
 </head>
-<body class="display-page">
+<body>
 
-<div class="display-root">
-
-  <header class="display-header">
-    <div class="event-title">🏎️ Pinewood Derby</div>
-    <div class="heat-info">
-      <div id="heatInfoText">Loading…</div>
-      <div style="font-size:0.75rem; margin-top:2px;">
-        <span class="refresh-dot"></span>
-        Live
-      </div>
-    </div>
-  </header>
-
-  <div class="display-body">
-
-    <!-- Left: current lanes -->
-    <div class="lanes-panel">
-      <div class="panel-title">Now Racing</div>
-      <div class="lane-rows" id="laneRows">
-        <div class="waiting">
-          <div class="big-icon">🏁</div>
-          <h2>Waiting to start…</h2>
-        </div>
-      </div>
-    </div>
-
-    <!-- Right: leaderboard -->
-    <div class="board-panel">
-      <div class="panel-title">Top Competitors</div>
-      <div class="board-rows" id="boardRows">
-        <div class="waiting">
-          <div class="big-icon">🏆</div>
-          <h2>No results yet</h2>
-        </div>
-      </div>
-    </div>
-
+<header>
+  <div class="hdr-brand">
+    <div class="title">Pinewood Derby</div>
+    <div class="subtitle">Cub Scouts Race Day</div>
   </div>
+
+  <div class="hdr-heat">
+    <div class="heat-main" id="heatInfoText">Loading…</div>
+  </div>
+
+  <div class="hdr-live">
+    <div class="live-dot"></div>
+    Live
+  </div>
+</header>
+
+<div class="display-body">
+
+  <!-- Left: current lanes -->
+  <div class="panel panel-left">
+    <div class="panel-label">Now on Track</div>
+    <div class="lane-rows" id="laneRows">
+      <div class="idle-state">
+        <div class="idle-icon">⏳</div>
+        <p>Waiting to start</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: leaderboard -->
+  <div class="panel">
+    <div class="panel-label">Standings</div>
+    <div class="board-rows" id="boardRows">
+      <div class="idle-state">
+        <div class="idle-icon">🏆</div>
+        <p>No results yet</p>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script src="../config.js"></script>
@@ -267,9 +354,9 @@
 
     if (!heatId) {
       el.innerHTML = `
-        <div class="waiting">
-          <div class="big-icon">🏁</div>
-          <h2>Waiting to start…</h2>
+        <div class="idle-state">
+          <div class="idle-icon">⏳</div>
+          <p>Waiting to start</p>
         </div>`;
       return;
     }
@@ -281,15 +368,19 @@
       .order('lane_number');
 
     if (!entries?.length) {
-      el.innerHTML = `<div class="waiting"><h2>No lane data</h2></div>`;
+      el.innerHTML = `<div class="idle-state"><p>No lane data</p></div>`;
       return;
     }
 
-    el.innerHTML = entries.map(e => `
+    const stripes = ['s1','s2','s3','s4'];
+    el.innerHTML = entries.map((e, i) => `
       <div class="lane-row">
-        <div class="ln-label">Lane ${e.lane_number}</div>
-        <div class="ln-num">${e.cars?.car_number ?? '—'}</div>
-        <div class="ln-name">${e.cars?.kid_name ?? '—'}</div>
+        <div class="lane-stripe ${stripes[i] || ''}"></div>
+        <div class="lane-inner">
+          <div class="ln-badge">Lane ${e.lane_number}</div>
+          <div class="ln-num">${e.cars?.car_number ?? '—'}</div>
+          <div class="ln-name">${e.cars?.kid_name ?? '—'}</div>
+        </div>
       </div>
     `).join('');
   }
@@ -300,9 +391,9 @@
 
     if (!roundId) {
       el.innerHTML = `
-        <div class="waiting">
-          <div class="big-icon">🏆</div>
-          <h2>No results yet</h2>
+        <div class="idle-state">
+          <div class="idle-icon">🏆</div>
+          <p>No results yet</p>
         </div>`;
       return;
     }
@@ -322,7 +413,7 @@
       .eq('eliminated', false);
 
     if (!activeCars?.length) {
-      el.innerHTML = `<div class="waiting"><h2>No active cars</h2></div>`;
+      el.innerHTML = `<div class="idle-state"><p>No active cars</p></div>`;
       return;
     }
 
@@ -344,17 +435,17 @@
 
     if (!sorted.length) {
       el.innerHTML = `
-        <div class="waiting">
-          <div class="big-icon">🏆</div>
-          <h2>No results yet</h2>
+        <div class="idle-state">
+          <div class="idle-icon">🏆</div>
+          <p>No results yet</p>
         </div>`;
       return;
     }
 
-    const medals = ['🥇', '🥈', '🥉', '4', '5', '6'];
+    const rankLabel = ['1st', '2nd', '3rd', '4th', '5th', '6th'];
     el.innerHTML = sorted.map((car, i) => `
       <div class="board-row pos-${i + 1}">
-        <div class="bd-pos">${medals[i]}</div>
+        <div class="bd-rank">${rankLabel[i] ?? i + 1}</div>
         <div class="bd-carnum">#${car.car_number}</div>
         <div class="bd-name">${car.kid_name}</div>
         <div class="bd-pts">${car.points} pts</div>

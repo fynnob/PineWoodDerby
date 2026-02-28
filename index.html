@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🏎️ Derby Registration</title>
+  <title>Derby Registration</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -12,7 +12,6 @@
 <div style="background:#fff; border-bottom:1px solid var(--border); padding:16px; box-shadow:var(--shadow); position:sticky; top:0; z-index:99;">
   <div style="max-width:640px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px;">
     <div style="display:flex; align-items:center; gap:10px;">
-      <span style="font-size:1.8rem;">🏎️</span>
       <div>
         <h1 style="font-size:1.2rem;">Pinewood Derby</h1>
         <p style="font-size:0.75rem; margin:0;">Car Registration</p>
@@ -34,8 +33,9 @@
     <input type="text" id="kidName" placeholder="e.g. Alex Johnson" maxlength="80"
            autocomplete="off" autocapitalize="words" />
 
-    <label for="carImage">Car Photo <span style="color:var(--muted2); font-weight:400;">(optional)</span></label>
+    <label for="carImage">Car Photo <span style="color:var(--accent); font-weight:600;">(recommended)</span></label>
     <input type="file" id="carImage" accept="image/*" capture="environment" />
+    <p style="font-size:0.78rem; color:var(--muted2); margin-top:-8px; margin-bottom:12px;">Tapping this opens your camera so you can take a new photo right now — no file browsing needed.</p>
 
     <div id="imagePreviewWrap" style="display:none; margin-bottom:14px;">
       <img id="imagePreview" src="" alt="preview"
@@ -47,16 +47,6 @@
     </button>
   </div>
 
-  <!-- QR code for this device (shown after first registration) -->
-  <div class="card" id="qrCard" style="display:none; text-align:center;">
-    <div class="card-title">Your Check-in QR Code</div>
-    <p style="margin-bottom:16px;">Show this ONE QR at inspection to check in ALL your cars at once.</p>
-    <div style="display:flex; justify-content:center; margin-bottom:16px;">
-      <div class="qr-block" id="deviceQrCanvas"></div>
-    </div>
-    <p style="font-size:0.78rem; color:var(--muted2);">One QR covers all cars registered from this device.</p>
-  </div>
-
   <!-- Registered cars for this device -->
   <div class="card">
     <div class="card-title">Your Registered Cars</div>
@@ -65,6 +55,34 @@
     </div>
   </div>
 
+</div>
+
+<!-- Edit car modal -->
+<div class="modal-overlay" id="editModal" onclick="closeEditModal(event)">
+  <div class="modal-sheet">
+    <div style="font-size:0.75rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px;">Edit Car</div>
+    <label for="editKidName">Racer's Name</label>
+    <input type="text" id="editKidName" placeholder="Racer's name" maxlength="80" autocapitalize="words" />
+    <label for="editCarImage" style="margin-top:12px;">Replace Photo <span style="color:var(--muted2); font-weight:400;">(optional)</span></label>
+    <input type="file" id="editCarImage" accept="image/*" capture="environment" />
+    <p style="font-size:0.78rem; color:var(--muted2); margin-top:-8px; margin-bottom:12px;">Opens camera — leave empty to keep existing photo.</p>
+    <div id="editPreviewWrap" style="display:none; margin-bottom:14px;">
+      <img id="editPreview" src="" alt="preview" style="max-height:120px; border-radius:10px; border:1px solid var(--border); display:block;" />
+    </div>
+    <button class="btn btn-gold btn-full" id="editSaveBtn" onclick="saveCarEdit()">Save Changes</button>
+    <button class="btn btn-ghost btn-full" style="margin-top:8px;" onclick="closeEditModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- Delete car confirm -->
+<div class="confirm-overlay" id="delCarOverlay" style="display:none;">
+  <div class="confirm-box">
+    <p style="margin-bottom:20px; font-weight:600;">Delete this car? This cannot be undone.</p>
+    <div style="display:flex; gap:12px;">
+      <button class="btn btn-ghost btn-full" onclick="closeDelModal()">Cancel</button>
+      <button class="btn btn-full" style="background:#dc2626; color:#fff;" onclick="confirmCarDelete()">Delete</button>
+    </div>
+  </div>
 </div>
 
 <!-- Full-screen QR modal (bottom sheet on mobile) -->
@@ -181,26 +199,10 @@
   });
 
   // ── Device QR (covers all cars from this device) ──────────────
-  let qrRendered = false;
-
   function renderDeviceQR() {
     const list = getMyCars();
     if (!list.length) return;
-
-    document.getElementById('qrCard').style.display = 'block';
     document.getElementById('showQrBtn').style.display = 'inline-flex';
-
-    if (!qrRendered) {
-      const canvas = document.getElementById('deviceQrCanvas');
-      canvas.innerHTML = '';
-      new QRCode(canvas, {
-        text:         getDeviceToken(),
-        width:        220, height: 220,
-        colorDark:    '#000', colorLight: '#fff',
-        correctLevel: QRCode.CorrectLevel.M
-      });
-      qrRendered = true;
-    }
   }
 
   function showDeviceQR() {
@@ -246,6 +248,10 @@
           <div style="margin-top:4px;">
             <span class="badge badge-${car.legal_status}" id="badge_${car.id}">${statusLabel(car.legal_status)}</span>
           </div>
+          <div style="display:flex; gap:8px; margin-top:10px;">
+            <button class="btn btn-sm" style="background:var(--accent2); color:#fff;" onclick="openCarEdit('${car.id}')">Edit</button>
+            <button class="btn btn-sm" style="background:#dc2626; color:#fff;" onclick="openDelModal('${car.id}')">Delete</button>
+          </div>
         </div>
       </div>
     `).join('');
@@ -264,6 +270,100 @@
       const b = document.getElementById('badge_' + car.id);
       if (b) { b.className = `badge badge-${car.legal_status}`; b.textContent = statusLabel(car.legal_status); }
     });
+  }
+
+  // ── Edit car ──────────────────────────────────────────────────
+  let _editCarId = null;
+
+  function openCarEdit(carId) {
+    _editCarId = carId;
+    const car = getMyCars().find(c => c.id === carId);
+    if (!car) return;
+    document.getElementById('editKidName').value = car.kid_name;
+    document.getElementById('editCarImage').value = '';
+    document.getElementById('editPreviewWrap').style.display = 'none';
+    document.getElementById('editModal').classList.add('open');
+  }
+
+  document.getElementById('editCarImage').addEventListener('change', function () {
+    const file = this.files[0]; if (!file) return;
+    document.getElementById('editPreview').src = URL.createObjectURL(file);
+    document.getElementById('editPreviewWrap').style.display = 'block';
+  });
+
+  function closeEditModal(e) {
+    if (!e || e.target.id === 'editModal' || e.target.tagName === 'BUTTON') {
+      document.getElementById('editModal').classList.remove('open');
+    }
+  }
+
+  async function saveCarEdit() {
+    const newName = document.getElementById('editKidName').value.trim();
+    if (!newName) { toast('Name cannot be empty.', false); return; }
+
+    const btn = document.getElementById('editSaveBtn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+
+    try {
+      const fileEl = document.getElementById('editCarImage');
+      const file   = fileEl.files[0];
+      let patch = { kid_name: newName };
+
+      if (file) {
+        const ext      = file.name.split('.').pop();
+        const fileName = `car_${Date.now()}.${ext}`;
+        const { error: upErr } = await sb.storage.from('car-images')
+          .upload(fileName, file, { contentType: file.type, upsert: false });
+        if (upErr) throw upErr;
+        patch.image_url = sb.storage.from('car-images').getPublicUrl(fileName).data.publicUrl;
+      }
+
+      const { error } = await sb.from('cars').update(patch).eq('id', _editCarId);
+      if (error) throw error;
+
+      const list = getMyCars().map(c => c.id === _editCarId ? { ...c, ...patch } : c);
+      localStorage.setItem(STORE_KEY, JSON.stringify(list));
+      renderCarList();
+      document.getElementById('editModal').classList.remove('open');
+      toast('Car updated!');
+    } catch (err) {
+      toast('Update failed — ' + err.message, false);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Save Changes';
+    }
+  }
+
+  // ── Delete car ────────────────────────────────────────────────
+  let _deleteCarId = null;
+
+  function openDelModal(carId) {
+    _deleteCarId = carId;
+    document.getElementById('delCarOverlay').style.display = 'flex';
+  }
+
+  function closeDelModal() {
+    document.getElementById('delCarOverlay').style.display = 'none';
+    _deleteCarId = null;
+  }
+
+  async function confirmCarDelete() {
+    if (!_deleteCarId) return;
+    const btn = document.querySelector('#delCarOverlay button[onclick="confirmCarDelete()"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+    try {
+      const { error } = await sb.from('cars').delete().eq('id', _deleteCarId);
+      if (error) throw error;
+      const list = getMyCars().filter(c => c.id !== _deleteCarId);
+      localStorage.setItem(STORE_KEY, JSON.stringify(list));
+      renderCarList();
+      renderDeviceQR();
+      document.getElementById('delCarOverlay').style.display = 'none';
+      _deleteCarId = null;
+      toast('Car deleted.');
+    } catch (err) {
+      toast('Delete failed — ' + err.message, false);
+      if (btn) { btn.disabled = false; btn.textContent = 'Delete'; }
+    }
   }
 
   // ── Realtime: push legal_status changes to this device's badges ─

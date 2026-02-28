@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-reset_db.py — Delete ALL race data from the Pinewood Derby Supabase database.
+reset_db.py — Delete ALL race data from the Pinewood Derby Supabase database,
+              including all car photos in the storage bucket.
 
 Usage:
     python3 reset_db.py
@@ -25,6 +26,33 @@ HEADERS = {
     "Content-Type": "application/json",
     "Prefer": "return=minimal",
 }
+
+
+def delete_bucket_files(bucket: str = "car-images") -> None:
+    """Delete every file in a Supabase Storage bucket."""
+    list_url = f"{SUPABASE_URL}/storage/v1/object/list/{bucket}"
+    r = requests.post(list_url, headers=HEADERS, json={"prefix": "", "limit": 1000, "offset": 0})
+    if r.status_code not in (200, 204):
+        print(f"  ERROR listing {bucket}: {r.status_code} — {r.text}")
+        return
+
+    files = r.json()
+    if not files:
+        print(f"  ✓ {bucket} (already empty)")
+        return
+
+    names = [f["name"] for f in files if isinstance(f, dict) and "name" in f]
+    if not names:
+        print(f"  ✓ {bucket} (already empty)")
+        return
+
+    del_url = f"{SUPABASE_URL}/storage/v1/object/{bucket}"
+    r2 = requests.delete(del_url, headers=HEADERS, json={"prefixes": names})
+    if r2.status_code not in (200, 204):
+        print(f"  ERROR deleting files in {bucket}: {r2.status_code} — {r2.text}")
+        return
+
+    print(f"  ✓ {bucket} ({len(names)} photo(s) deleted)")
 
 
 def delete_all(table: str) -> None:
@@ -68,6 +96,7 @@ def main() -> None:
     delete_all("heats")
     delete_all("rounds")
     delete_all("cars")
+    delete_bucket_files("car-images")
 
     print("\n✅  Database cleared successfully.\n")
 
