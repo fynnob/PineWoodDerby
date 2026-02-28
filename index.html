@@ -92,9 +92,10 @@
     <div style="display:flex; justify-content:center; margin-bottom:16px;">
       <div class="qr-block" id="qrCanvas"></div>
     </div>
-    <p style="font-size:0.85rem; margin-bottom:20px;">
+    <p style="font-size:0.85rem; margin-bottom:12px;">
       Show this at inspection — it covers all your cars.
     </p>
+    <p style="font-size:1.2rem; font-weight:900; letter-spacing:6px; color:var(--accent); margin-bottom:20px;" id="qrShortCode"></p>
     <button class="btn btn-ghost btn-full" onclick="closeQR()">Close</button>
   </div>
 </div>
@@ -206,15 +207,35 @@
   }
 
   function showDeviceQR() {
+    const token = getDeviceToken();
+    const shortCode = tokenToShortCode(token);
     const canvas = document.getElementById('qrCanvas');
     canvas.innerHTML = '';
     new QRCode(canvas, {
-      text:         getDeviceToken(),
+      text:         token,
       width:        240, height: 240,
       colorDark:    '#000', colorLight: '#fff',
       correctLevel: QRCode.CorrectLevel.M
     });
+    document.getElementById('qrShortCode').textContent = shortCode;
     document.getElementById('qrModal').classList.add('open');
+  }
+
+  // Derive a stable 4-char letters-only code from the device token
+  function tokenToShortCode(token) {
+    let hash = 0;
+    for (let i = 0; i < token.length; i++) {
+      hash = ((hash << 5) - hash) + token.charCodeAt(i);
+      hash |= 0;
+    }
+    hash = Math.abs(hash);
+    const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I or O to avoid confusion
+    let code = '';
+    for (let i = 0; i < 4; i++) {
+      code += letters[hash % letters.length];
+      hash = Math.floor(hash / letters.length);
+    }
+    return code;
   }
 
   function closeQR(e) {

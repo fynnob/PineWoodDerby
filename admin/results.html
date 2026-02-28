@@ -8,8 +8,26 @@
 </head>
 <body>
 
+<!-- PIN gate -->
+<div id="pinGate" style="position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;">
+  <div style="text-align:center;max-width:300px;padding:20px;">
+    <h2 style="margin-bottom:8px;">Admin Access</h2>
+    <p style="margin-bottom:16px;">Enter the 4-digit PIN</p>
+    <input type="tel" id="pinInput" maxlength="4" placeholder="••••" autocomplete="off"
+           style="text-align:center;font-size:2rem;letter-spacing:12px;width:160px;margin:0 auto 16px;display:block;" />
+    <p id="pinErr" style="color:var(--danger);font-size:0.82rem;min-height:1.4em;"></p>
+  </div>
+</div>
+<script>
+(function(){
+  const PIN='2468',KEY='derby_admin_pin';
+  if(localStorage.getItem(KEY)===PIN){document.getElementById('pinGate').style.display='none';}
+  else{document.getElementById('pinInput').addEventListener('input',function(){if(this.value.length===4){if(this.value===PIN){localStorage.setItem(KEY,PIN);document.getElementById('pinGate').style.display='none';}else{document.getElementById('pinErr').textContent='Wrong PIN';this.value='';}}});document.getElementById('pinInput').focus();}
+})();
+</script>
+
 <nav class="top-nav">
-  <span class="brand">🏎️ Derby</span>
+  <span class="brand">Derby</span>
   <a href="index.html">Hub</a>
   <a href="inspection.html">Inspection</a>
   <a href="track.html">Track</a>
@@ -322,8 +340,7 @@
   async function loadRoundSection() {
     if (!currentRoundId) {
       document.getElementById('roundBody').innerHTML = `
-        <p style="margin-bottom:16px;">No round started. Only <strong>legal</strong> cars will race.
-        Pending and not-legal cars are excluded.</p>
+        <p style="margin-bottom:16px;">No round started yet.</p>
         <button class="btn btn-gold btn-lg" onclick="startFirstRound()">🚦 Start Round 1</button>`;
       return;
     }
@@ -372,7 +389,7 @@
         .map(c => ({ ...c, points: pts[c.id] ?? 0 }))
         .sort((a, b) => a.points - b.points || a.car_number - b.car_number);
 
-      html += `<div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:8px;">Standings (legal cars)</div>`;
+      html += `<div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:8px;">Standings</div>`;
       html += sorted.map((car, i) => `
         <div class="leaderboard-row ${i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':''}">
           <div class="rank">${i+1}</div>
@@ -382,12 +399,37 @@
         </div>`).join('');
     }
 
-    if (allDone) {
+    if (allDone && legalCars && legalCars.length <= 4) {
+      // PODIUM MODE — final round, 4 or fewer cars
+      const pts = {};
+      legalCars.forEach(c => pts[c.id] = 0);
+      (results || []).forEach(r => {
+        if (pts[r.first_place_car]  !== undefined) pts[r.first_place_car]  += 1;
+        if (pts[r.second_place_car] !== undefined) pts[r.second_place_car] += 2;
+        if (pts[r.third_place_car]  !== undefined) pts[r.third_place_car]  += 3;
+        if (pts[r.fourth_place_car] !== undefined) pts[r.fourth_place_car] += 4;
+      });
+      const finalSorted = legalCars
+        .map(c => ({ ...c, points: pts[c.id] ?? 0 }))
+        .sort((a, b) => a.points - b.points || a.car_number - b.car_number);
+
+      // Store for podium use
+      window._podiumCars = finalSorted;
+
+      html += `
+        <hr class="divider" />
+        <p style="margin-bottom:12px; color:var(--success); font-weight:700;">🏆 Final round complete!</p>
+        <button class="btn btn-gold btn-lg btn-full" onclick="startPodium()">Start Podium Ceremony</button>
+        <div id="podiumControls" style="display:none; margin-top:16px;">
+          <p id="podiumStatus" style="font-weight:700; margin-bottom:12px; text-align:center;"></p>
+          <button class="btn btn-primary btn-lg btn-full" id="podiumNextBtn" onclick="podiumNext()">Next →</button>
+        </div>`;
+    } else if (allDone) {
+    } else if (allDone) {
       html += `
         <hr class="divider" />
         <p style="margin-bottom:12px; color:var(--success); font-weight:700;">🎉 All ${total} heats complete!</p>
-        <p style="margin-bottom:12px; font-size:0.88rem;">How many cars advance to Round ${round.round_number + 1}?<br>
-        <span style="font-size:0.8rem; color:var(--muted);">(Pending &amp; not-legal cars are excluded from count)</span></p>
+        <p style="margin-bottom:12px; font-size:0.88rem;">How many cars advance to Round ${round.round_number + 1}?</p>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
           <input type="number" id="advanceCount" min="4" max="99" placeholder="e.g. 4"
                  style="width:110px; margin:0;" />
@@ -502,6 +544,65 @@
       current_heat_id:  heats[0].id,
       updated_at: new Date().toISOString()
     }).eq('id', 1);
+  }
+
+  // ── Podium ceremony ────────────────────────────────────────────
+  let _podiumStep = -1;
+
+  async function startPodium() {
+    const cars = window._podiumCars;
+    if (!cars || cars.length < 3) { toast('Need at least 3 cars for podium.', false); return; }
+
+    _podiumStep = -1;
+
+    const podiumData = {
+      mode: 'podium',
+      step: -1,
+      cars: cars.map((c, i) => ({ rank: i + 1, car_number: c.car_number, kid_name: c.kid_name }))
+    };
+
+    sb.channel('podium-control').send({
+      type: 'broadcast',
+      event: 'podium',
+      payload: podiumData
+    });
+
+    document.querySelector('[onclick="startPodium()"]').style.display = 'none';
+    document.getElementById('podiumControls').style.display = 'block';
+    document.getElementById('podiumStatus').textContent = 'Podium ready — tap Next to reveal 3rd place';
+    document.getElementById('podiumNextBtn').textContent = 'Reveal 3rd place →';
+  }
+
+  async function podiumNext() {
+    _podiumStep++;
+    const cars = window._podiumCars;
+    const labels = ['3rd place', '2nd place', '1st place'];
+
+    sb.channel('podium-control').send({
+      type: 'broadcast',
+      event: 'podium',
+      payload: {
+        mode: 'podium',
+        step: _podiumStep,
+        cars: cars.map((c, i) => ({ rank: i + 1, car_number: c.car_number, kid_name: c.kid_name }))
+      }
+    });
+
+    if (_podiumStep < 3) {
+      const revealed = labels[_podiumStep] || '';
+      document.getElementById('podiumStatus').textContent = `Revealed: ${revealed}`;
+      if (_podiumStep === 2) {
+        document.getElementById('podiumNextBtn').textContent = 'Done 🏁';
+      } else {
+        const nextLabel = labels[_podiumStep + 1] || '';
+        document.getElementById('podiumNextBtn').textContent = `Reveal ${nextLabel} →`;
+      }
+    }
+
+    if (_podiumStep >= 3) {
+      document.getElementById('podiumStatus').textContent = '🏆 Ceremony complete!';
+      document.getElementById('podiumNextBtn').style.display = 'none';
+    }
   }
 
   loadPage();

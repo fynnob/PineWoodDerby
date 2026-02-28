@@ -271,6 +271,83 @@
       .ln-num  { font-size: 2.2rem !important; }
       .ln-name { font-size: 1.2rem !important; }
     }
+
+    /* ── Podium overlay ── */
+    .podium-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 500;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 40px;
+    }
+    .podium-overlay.active { display: flex; }
+
+    .podium-title {
+      font-size: 1.2rem;
+      font-weight: 800;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 48px;
+    }
+
+    .podium-blocks {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+
+    .podium-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .podium-label {
+      font-size: 1.8rem;
+      font-weight: 900;
+      opacity: 0;
+    }
+    .podium-label.revealed { opacity: 1; }
+
+    .podium-car {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text);
+      opacity: 0;
+      min-height: 2.6em;
+    }
+    .podium-car.revealed { opacity: 1; }
+
+    .podium-pedestal {
+      width: 160px;
+      border-radius: 12px 12px 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      font-weight: 900;
+      color: rgba(255,255,255,0.3);
+    }
+    .ped-1 { height: 200px; background: linear-gradient(180deg, #ffd700 0%, #b8860b 100%); }
+    .ped-2 { height: 150px; background: linear-gradient(180deg, #c0c0c0 0%, #808080 100%); }
+    .ped-3 { height: 110px; background: linear-gradient(180deg, #cd7f32 0%, #8b4513 100%); }
+
+    .podium-rest {
+      margin-top: 32px;
+      font-size: 0.9rem;
+      color: var(--muted);
+      max-width: 600px;
+      line-height: 1.8;
+    }
   </style>
 </head>
 <body>
@@ -315,6 +392,34 @@
     </div>
   </div>
 
+</div>
+
+<!-- Podium ceremony overlay -->
+<div class="podium-overlay" id="podiumOverlay">
+  <div class="podium-title">🏆 Final Results</div>
+
+  <div class="podium-blocks">
+    <!-- 2nd place (left) -->
+    <div class="podium-block">
+      <div class="podium-car" id="pod-car-2">—</div>
+      <div class="podium-label" id="pod-label-2" style="color:var(--silver);">🥈</div>
+      <div class="podium-pedestal ped-2">2</div>
+    </div>
+    <!-- 1st place (center, tallest) -->
+    <div class="podium-block">
+      <div class="podium-car" id="pod-car-1">—</div>
+      <div class="podium-label" id="pod-label-1" style="color:var(--gold);">🥇</div>
+      <div class="podium-pedestal ped-1">1</div>
+    </div>
+    <!-- 3rd place (right) -->
+    <div class="podium-block">
+      <div class="podium-car" id="pod-car-3">—</div>
+      <div class="podium-label" id="pod-label-3" style="color:var(--bronze);">🥉</div>
+      <div class="podium-pedestal ped-3">3</div>
+    </div>
+  </div>
+
+  <div class="podium-rest" id="podiumRest"></div>
 </div>
 
 <script src="../config.js"></script>
@@ -459,6 +564,57 @@
     .on('postgres_changes', { event: '*', schema: 'public', table: 'heat_results' }, refresh)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'heat_entries' }, refresh)
     .subscribe();
+
+  // ── Podium ceremony listener ──────────────────────────────────
+  sb.channel('podium-control')
+    .on('broadcast', { event: 'podium' }, ({ payload }) => {
+      if (!payload || payload.mode !== 'podium') return;
+      handlePodium(payload);
+    })
+    .subscribe();
+
+  function handlePodium(data) {
+    const overlay = document.getElementById('podiumOverlay');
+    overlay.classList.add('active');
+
+    const cars = data.cars; // sorted by rank: 1=best, 2=second, 3=third, 4+=rest
+    const step = data.step; // -1=show podium hidden, 0=reveal 3rd, 1=reveal 2nd, 2=reveal 1st
+
+    // Show 4th+ place cars at the bottom (always visible once podium starts)
+    const rest = cars.filter(c => c.rank > 3);
+    if (rest.length) {
+      document.getElementById('podiumRest').innerHTML =
+        rest.map(c => `<span style="margin:0 12px;">${c.rank}th — #${c.car_number} ${c.kid_name}</span>`).join('');
+    }
+
+    // Reset all
+    for (let i = 1; i <= 3; i++) {
+      document.getElementById('pod-label-' + i).classList.remove('revealed');
+      document.getElementById('pod-car-' + i).classList.remove('revealed');
+    }
+
+    // Fill hidden car names
+    const c1 = cars.find(c => c.rank === 1);
+    const c2 = cars.find(c => c.rank === 2);
+    const c3 = cars.find(c => c.rank === 3);
+    if (c1) document.getElementById('pod-car-1').textContent = `#${c1.car_number} ${c1.kid_name}`;
+    if (c2) document.getElementById('pod-car-2').textContent = `#${c2.car_number} ${c2.kid_name}`;
+    if (c3) document.getElementById('pod-car-3').textContent = `#${c3.car_number} ${c3.kid_name}`;
+
+    // Reveal based on step: 0 = 3rd, 1 = 2nd, 2 = 1st
+    if (step >= 0) {
+      document.getElementById('pod-label-3').classList.add('revealed');
+      document.getElementById('pod-car-3').classList.add('revealed');
+    }
+    if (step >= 1) {
+      document.getElementById('pod-label-2').classList.add('revealed');
+      document.getElementById('pod-car-2').classList.add('revealed');
+    }
+    if (step >= 2) {
+      document.getElementById('pod-label-1').classList.add('revealed');
+      document.getElementById('pod-car-1').classList.add('revealed');
+    }
+  }
 
   // ── Init + poll fallback every 8 s ────────────────────────────
   refresh();
