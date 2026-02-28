@@ -27,6 +27,10 @@ BEGIN
 END;
 $$;
 
+-- Migrate existing tables: swap qr_token → device_token if needed
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS device_token TEXT NOT NULL DEFAULT gen_random_uuid()::TEXT;
+ALTER TABLE cars DROP COLUMN IF EXISTS qr_token;
+
 DROP TRIGGER IF EXISTS trg_car_number ON cars;
 CREATE TRIGGER trg_car_number
   BEFORE INSERT ON cars
