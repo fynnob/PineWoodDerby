@@ -97,21 +97,19 @@ a  { color: var(--accent2); }
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
-  transition: opacity 0.12s, transform 0.1s, background 0.15s;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   text-decoration: none;
 }
 
-.btn:active   { transform: scale(0.97); opacity: 0.85; }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+.btn:active   { opacity: 0.75; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .btn-primary { background: var(--accent2);    color: #fff; }
 .btn-gold    { background: var(--accent);     color: #fff; }
 .btn-danger  { background: var(--danger);     color: #fff; }
 .btn-success { background: var(--success);    color: #fff; }
 .btn-ghost   { background: transparent; border: 1.5px solid var(--border2); color: var(--text2); }
-.btn-ghost:hover { background: var(--surface2); }
 
 .btn-lg   { font-size: 1.05rem; min-height: 58px; }
 .btn-sm   { min-height: 38px; padding: 0 14px; font-size: 0.85rem; }
@@ -204,10 +202,8 @@ input:focus, select:focus, textarea:focus {
   padding: 14px 10px;
   white-space: nowrap;
   border-bottom: 2px solid transparent;
-  transition: color 0.15s, border-color 0.15s;
 }
 
-.top-nav a:hover  { color: var(--text); }
 .top-nav a.active { color: var(--accent2); border-bottom-color: var(--accent2); }
 
 /* ── Status badges ──────────────────────────────────────────── */
@@ -290,16 +286,33 @@ input:focus, select:focus, textarea:focus {
 .insp-car-row .insp-name  { font-weight: 600; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .insp-car-row .insp-btns  { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
 
-.insp-radio-label {
+/* Inspection toggle buttons (mutually exclusive per car via JS) */
+.insp-toggle-btn {
   display: flex; align-items: center; justify-content: center;
-  padding: 0 16px; height: 44px; border-radius: 8px; min-width: 100px;
+  height: 44px; padding: 0 14px; border-radius: 8px; min-width: 96px;
   font-size: 0.85rem; font-weight: 700; border: 1.5px solid var(--border);
-  cursor: pointer; font-family: var(--font); user-select: none;
+  cursor: pointer; font-family: var(--font);
   background: var(--surface); color: var(--muted2);
 }
-.insp-radio-label input[type="radio"] { display: none; }
-.insp-radio-label.legal:has(input:checked)   { background: var(--success); border-color: var(--success); color: #fff; }
-.insp-radio-label.illegal:has(input:checked) { background: var(--danger);  border-color: var(--danger);  color: #fff; }
+.insp-toggle-btn.legal.active   { background: var(--success); border-color: var(--success); color: #fff; }
+.insp-toggle-btn.illegal.active { background: var(--danger);  border-color: var(--danger);  color: #fff; }
+
+/* Segmented control (Quick Tap / Dropdown) */
+.seg-ctrl { display: flex; border: 1.5px solid var(--border2); border-radius: 10px; overflow: hidden; margin-bottom: 16px; }
+.seg-btn  { flex: 1; min-height: 44px; border: none; background: var(--surface); color: var(--muted); font-family: var(--font); font-size: 0.9rem; font-weight: 700; cursor: pointer; padding: 0 12px; }
+.seg-btn.active { background: var(--accent2); color: #fff; }
+
+/* Delete confirm overlay */
+.confirm-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1100; align-items:center; justify-content:center; padding:20px; }
+.confirm-overlay.open { display:flex; }
+.confirm-box { background:var(--surface); border-radius:16px; padding:24px; max-width:320px; width:100%; text-align:center; }
+.confirm-box h3  { font-size:1.1rem; margin-bottom:8px; }
+.confirm-box p   { font-size:0.88rem; color:var(--muted); margin-bottom:20px; }
+.confirm-box .confirm-btns { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+/* Heat navigation (track page) */
+.heat-nav { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:16px; }
+.heat-nav .heat-nav-label { flex:1; text-align:center; font-size:1.05rem; font-weight:800; }
 
 /* ── QR block ───────────────────────────────────────────────── */
 .qr-block {

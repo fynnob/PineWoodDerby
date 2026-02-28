@@ -13,8 +13,8 @@
   <a href="index.html">Hub</a>
   <a href="inspection.html" class="active">Inspection</a>
   <a href="track.html">Track</a>
-  <a href="results.html">Results</a>
-  <a href="rounds.html">Rounds</a>
+  <a href="results.html">Officials</a>
+  <a href="cars.html">Cars</a>
 </nav>
 
 <div class="container">
@@ -55,6 +55,18 @@
     <div id="carList"></div>
   </div>
 
+</div>
+
+<!-- Delete confirmation -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <h3>Delete Car?</h3>
+    <p id="confirmMsg">This cannot be undone. The car number will not be reused.</p>
+    <div class="confirm-btns">
+      <button class="btn btn-ghost btn-full" onclick="closeConfirm()">Cancel</button>
+      <button class="btn btn-danger btn-full" id="confirmDeleteBtn">Delete</button>
+    </div>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -134,20 +146,16 @@
           <span class="badge badge-${car.legal_status}" id="badge_${car.id}">
             ${statusLabel(car.legal_status)}
           </span>
+          <button class="btn btn-ghost btn-sm" style="margin-top:8px;border-color:var(--danger);color:var(--danger);min-height:34px;padding:0 10px;font-size:0.78rem;"
+                  onclick="askDelete('${car.id}', '#${car.car_number} ${car.kid_name}')">Delete</button>
         </div>
         <div class="insp-btns" style="display:flex;gap:8px;flex-shrink:0;">
-          <label class="insp-radio-label legal">
-            <input type="radio" name="status_${car.id}" value="legal"
-                   ${car.legal_status === 'legal' ? 'checked' : ''}
-                   onchange="setStatus('${car.id}', 'legal')">
-            ✅ Legal
-          </label>
-          <label class="insp-radio-label illegal">
-            <input type="radio" name="status_${car.id}" value="not_legal"
-                   ${car.legal_status === 'not_legal' ? 'checked' : ''}
-                   onchange="setStatus('${car.id}', 'not_legal')">
-            ❌ Not Legal
-          </label>
+          <button class="insp-toggle-btn legal ${car.legal_status === 'legal' ? 'active' : ''}"
+                  id="legal_${car.id}"
+                  onclick="setStatus('${car.id}', 'legal')">&#10003; Legal</button>
+          <button class="insp-toggle-btn illegal ${car.legal_status === 'not_legal' ? 'active' : ''}"
+                  id="illegal_${car.id}"
+                  onclick="setStatus('${car.id}', 'not_legal')">&#10007; Not Legal</button>
         </div>
       </div>
     `).join('');
@@ -162,12 +170,10 @@
   function applyStatusUI(carId, status) {
     const badge = document.getElementById('badge_' + carId);
     if (badge) { badge.className = `badge badge-${status}`; badge.textContent = statusLabel(status); }
-    // Sync radio checked state (handles updates pushed from other devices)
-    const row = document.getElementById('row_' + carId);
-    if (row) {
-      const radio = row.querySelector(`input[value="${status}"]`);
-      if (radio) radio.checked = true;
-    }
+    const lBtn = document.getElementById('legal_'   + carId);
+    const iBtn = document.getElementById('illegal_' + carId);
+    if (lBtn) lBtn.classList.toggle('active', status === 'legal');
+    if (iBtn) iBtn.classList.toggle('active', status === 'not_legal');
   }
 
   async function setStatus(carId, status) {
@@ -177,6 +183,33 @@
     toast(status === 'legal' ? '✅ Marked Legal' : '❌ Marked Not Legal');
     loadTally();
   }
+
+  // ── Delete car ──────────────────────────────────────────────────
+  let _pendingDeleteId = null;
+
+  function askDelete(carId, label) {
+    _pendingDeleteId = carId;
+    document.getElementById('confirmMsg').textContent =
+      `Delete ${label}? This cannot be undone. The car number will not be reused.`;
+    document.getElementById('confirmOverlay').classList.add('open');
+  }
+
+  function closeConfirm() {
+    _pendingDeleteId = null;
+    document.getElementById('confirmOverlay').classList.remove('open');
+  }
+
+  document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+    if (!_pendingDeleteId) return;
+    const id = _pendingDeleteId;
+    closeConfirm();
+    const { error } = await sb.from('cars').delete().eq('id', id);
+    if (error) { toast('Delete failed: ' + error.message, false); return; }
+    const row = document.getElementById('row_' + id);
+    if (row) row.remove();
+    toast('Car deleted.');
+    loadTally();
+  });
 
   // ── Realtime: reflect changes from other devices ──────────────
   sb.channel('insp-cars')

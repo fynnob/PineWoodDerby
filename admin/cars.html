@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cars — Pinewood Derby</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+
+<nav class="top-nav">
+  <span class="brand">🏎️ Derby</span>
+  <a href="index.html">Hub</a>
+  <a href="inspection.html">Inspection</a>
+  <a href="track.html">Track</a>
+  <a href="results.html">Officials</a>
+  <a href="cars.html" class="active">Cars</a>
+</nav>
+
+<div class="container">
+
+  <div class="card">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+      <div class="card-title" style="margin:0;">All Cars (<span id="carCount">0</span>)</div>
+      <button class="btn btn-ghost btn-sm" onclick="loadCars()">↻ Refresh</button>
+    </div>
+    <div id="carList"><span class="spinner"></span></div>
+  </div>
+
+</div>
+
+<!-- Edit modal -->
+<div class="confirm-overlay" id="editOverlay">
+  <div class="confirm-box" style="max-width:380px;">
+    <h3 style="margin-bottom:16px;">Edit Car <span id="editNum"></span></h3>
+
+    <label>Racer Name</label>
+    <input type="text" id="editName" autocapitalize="words" />
+
+    <label>Status</label>
+    <select id="editStatus">
+      <option value="pending">⏳ Pending</option>
+      <option value="legal">✅ Legal</option>
+      <option value="not_legal">❌ Not Legal</option>
+    </select>
+
+    <label style="display:flex; align-items:center; gap:8px; text-transform:none; font-size:0.9rem; margin-bottom:16px;">
+      <input type="checkbox" id="editElim" style="width:auto; margin:0;" />
+      Eliminated from racing
+    </label>
+
+    <div class="confirm-btns">
+      <button class="btn btn-ghost btn-full" onclick="closeEdit()">Cancel</button>
+      <button class="btn btn-primary btn-full" id="saveEditBtn" onclick="saveEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete confirm -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <h3>Delete Car?</h3>
+    <p id="confirmMsg"></p>
+    <div class="confirm-btns">
+      <button class="btn btn-ghost btn-full" onclick="closeConfirm()">Cancel</button>
+      <button class="btn btn-danger btn-full" id="confirmDeleteBtn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="../config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  let _editId   = null;
+  let _deleteId = null;
+
+  function toast(msg, ok = true) {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.className = ok ? 'show ok' : 'show err';
+    setTimeout(() => el.className = '', 3000);
+  }
+
+  function statusLabel(s) {
+    return s === 'legal' ? '✅ Legal' : s === 'not_legal' ? '❌ Not Legal' : '⏳ Pending';
+  }
+
+  async function loadCars() {
+    document.getElementById('carList').innerHTML = '<span class="spinner"></span>';
+    const { data: cars, error } = await sb
+      .from('cars').select('*').order('car_number');
+    if (error) { toast('Load failed: ' + error.message, false); return; }
+
+    document.getElementById('carCount').textContent = cars.length;
+
+    if (!cars.length) {
+      document.getElementById('carList').innerHTML = '<div class="empty-state">No cars registered yet.</div>';
+      return;
+    }
+
+    document.getElementById('carList').innerHTML = cars.map(car => `
+      <div class="car-list-item" id="carrow_${car.id}">
+        <img src="${car.image_url||''}" onerror="this.style.display='none'" alt="#${car.car_number}" />
+        <div class="info" style="flex:1;">
+          <div class="num">#${car.car_number}</div>
+          <div class="name">${car.kid_name}</div>
+          <div style="margin-top:4px; display:flex; gap:6px; flex-wrap:wrap;">
+            <span class="badge badge-${car.legal_status}" id="statusBadge_${car.id}">${statusLabel(car.legal_status)}</span>
+            ${car.eliminated ? '<span class="badge badge-pending">Eliminated</span>' : ''}
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
+          <button class="btn btn-ghost btn-sm" onclick="openEdit('${car.id}','${car.car_number}','${car.kid_name.replace(/'/g,"\\'")}','${car.legal_status}',${car.eliminated})">
+            Edit
+          </button>
+          <button class="btn btn-ghost btn-sm" style="border-color:var(--danger);color:var(--danger);"
+                  onclick="askDelete('${car.id}', '#${car.car_number} ${car.kid_name.replace(/'/g,"\\'")}')">
+            Delete
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ── Edit ──────────────────────────────────────────────────────
+  function openEdit(id, num, name, status, elim) {
+    _editId = id;
+    document.getElementById('editNum').textContent   = '#' + num;
+    document.getElementById('editName').value        = name;
+    document.getElementById('editStatus').value      = status;
+    document.getElementById('editElim').checked      = elim;
+    document.getElementById('editOverlay').classList.add('open');
+  }
+
+  function closeEdit() {
+    _editId = null;
+    document.getElementById('editOverlay').classList.remove('open');
+  }
+
+  async function saveEdit() {
+    const btn = document.getElementById('saveEditBtn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    const { error } = await sb.from('cars').update({
+      kid_name:     document.getElementById('editName').value.trim(),
+      legal_status: document.getElementById('editStatus').value,
+      eliminated:   document.getElementById('editElim').checked
+    }).eq('id', _editId);
+    btn.disabled = false; btn.textContent = 'Save';
+    if (error) { toast('Save failed: ' + error.message, false); return; }
+    toast('Saved!');
+    closeEdit();
+    loadCars();
+  }
+
+  // ── Delete ────────────────────────────────────────────────────
+  function askDelete(id, label) {
+    _deleteId = id;
+    document.getElementById('confirmMsg').textContent =
+      `Delete ${label}? This cannot be undone. The car number will not be reused.`;
+    document.getElementById('confirmOverlay').classList.add('open');
+  }
+
+  function closeConfirm() {
+    _deleteId = null;
+    document.getElementById('confirmOverlay').classList.remove('open');
+  }
+
+  document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+    if (!_deleteId) return;
+    const id = _deleteId;
+    closeConfirm();
+    const { error } = await sb.from('cars').delete().eq('id', id);
+    if (error) { toast('Delete failed: ' + error.message, false); return; }
+    document.getElementById('carrow_' + id)?.remove();
+    toast('Car deleted.');
+    loadCars();
+  });
+
+  loadCars();
+</script>
+</body>
+</html>

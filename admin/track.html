@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Track Setup — Pinewood Derby</title>
+  <title>Track — Pinewood Derby</title>
   <link rel="stylesheet" href="../styles.css" />
 </head>
 <body>
@@ -13,135 +13,99 @@
   <a href="index.html">Hub</a>
   <a href="inspection.html">Inspection</a>
   <a href="track.html" class="active">Track</a>
-  <a href="results.html">Results</a>
-  <a href="rounds.html">Rounds</a>
+  <a href="results.html">Officials</a>
+  <a href="cars.html">Cars</a>
 </nav>
 
 <div class="container">
 
-  <!-- Current heat info -->
-  <div class="card">
-    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
-      <div>
-        <div style="font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px;">Now Racing</div>
-        <h2 id="heatTitle" style="color:var(--accent2);">Loading…</h2>
-      </div>
-      <span id="heatStatus" class="badge"></span>
-    </div>
-
-    <!-- Lane board -->
-    <div class="lane-board" id="laneBoard">
-      <div class="lane-card"><div class="lane-label">Lane 1</div><div class="car-number">—</div></div>
-      <div class="lane-card"><div class="lane-label">Lane 2</div><div class="car-number">—</div></div>
-      <div class="lane-card"><div class="lane-label">Lane 3</div><div class="car-number">—</div></div>
-      <div class="lane-card"><div class="lane-label">Lane 4</div><div class="car-number">—</div></div>
-    </div>
+  <!-- Heat browsing navigation -->
+  <div class="heat-nav">
+    <button class="btn btn-ghost" id="prevBtn" onclick="browse(-1)" style="min-width:56px;">◀</button>
+    <div class="heat-nav-label" id="heatNavLabel">Loading…</div>
+    <button class="btn btn-ghost" id="nextBtn" onclick="browse(1)"  style="min-width:56px;">▶</button>
   </div>
 
-  <!-- Controls -->
-  <div class="card">
-    <div class="card-title">Heat Control</div>
-    <div style="display:flex; gap:12px; flex-wrap:wrap;">
-      <button class="btn btn-primary btn-lg" id="nextHeatBtn" onclick="advanceHeat()">
-        ▶ Next Heat
-      </button>
-      <button class="btn btn-ghost" onclick="loadCurrentHeat()">
-        ↻ Refresh
-      </button>
-      <a href="results.html" class="btn btn-gold">
-        🏁 Enter Results
-      </a>
-    </div>
-    <p id="controlHint" style="margin-top:12px; font-size:0.85rem;"></p>
-  </div>
-
-  <!-- Upcoming heats in this round -->
-  <div class="card">
-    <div class="card-title">All Heats This Round</div>
-    <div id="heatList"><span class="spinner"></span></div>
+  <!-- Lane board -->
+  <div class="lane-board" id="laneBoard">
+    <div class="lane-card"><div class="lane-label">Lane 1</div><div class="car-number">—</div></div>
+    <div class="lane-card"><div class="lane-label">Lane 2</div><div class="car-number">—</div></div>
+    <div class="lane-card"><div class="lane-label">Lane 3</div><div class="car-number">—</div></div>
+    <div class="lane-card"><div class="lane-label">Lane 4</div><div class="car-number">—</div></div>
   </div>
 
 </div>
-
-<div id="toast"></div>
 
 <script src="../config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  function toast(msg, ok = true) {
-    const el = document.getElementById('toast');
-    el.textContent = msg;
-    el.style.borderColor = ok ? 'var(--success)' : 'var(--danger)';
-    el.classList.add('show');
-    setTimeout(() => el.classList.remove('show'), 3000);
-  }
+  let allHeats   = [];  // [{id, heat_number, round_number}]
+  let viewIndex  = 0;   // index into allHeats we're currently viewing
 
-  // ── Load current heat ─────────────────────────────────────────
-  async function loadCurrentHeat() {
+  // ── Load all heats for current round ─────────────────────────
+  async function init() {
     const { data: state } = await sb
       .from('race_state')
       .select('current_round_id, current_heat_id')
       .eq('id', 1)
       .single();
 
-    if (!state?.current_heat_id) {
-      document.getElementById('heatTitle').textContent = 'No active heat';
-      document.getElementById('heatStatus').textContent = 'Waiting';
-      document.getElementById('heatStatus').className = 'badge badge-pending';
-      document.getElementById('controlHint').textContent =
-        'Start a round from the Rounds page first.';
+    if (!state?.current_round_id) {
+      document.getElementById('heatNavLabel').textContent = 'No active round';
       renderEmptyBoard();
       return;
     }
 
-    // Fetch heat + entries + car info
-    const { data: heat } = await sb
+    const { data: heats } = await sb
       .from('heats')
-      .select('id, heat_number, status, round_id, rounds(round_number)')
-      .eq('id', state.current_heat_id)
-      .single();
+      .select('id, heat_number, rounds(round_number)')
+      .eq('round_id', state.current_round_id)
+      .order('heat_number');
+
+    if (!heats?.length) {
+      document.getElementById('heatNavLabel').textContent = 'No heats yet';
+      renderEmptyBoard();
+      return;
+    }
+
+    allHeats = heats.map(h => ({
+      id:           h.id,
+      heat_number:  h.heat_number,
+      round_number: h.rounds?.round_number ?? '?'
+    }));
+
+    // Default to current heat
+    const currentIdx = allHeats.findIndex(h => h.id === state.current_heat_id);
+    viewIndex = currentIdx >= 0 ? currentIdx : 0;
+
+    showHeat(viewIndex);
+  }
+
+  function browse(delta) {
+    const next = viewIndex + delta;
+    if (next < 0 || next >= allHeats.length) return;
+    viewIndex = next;
+    showHeat(viewIndex);
+  }
+
+  async function showHeat(idx) {
+    const h = allHeats[idx];
+
+    document.getElementById('heatNavLabel').textContent =
+      `Round ${h.round_number} — Heat ${h.heat_number} (${idx + 1}/${allHeats.length})`;
+    document.getElementById('prevBtn').disabled = idx === 0;
+    document.getElementById('nextBtn').disabled = idx === allHeats.length - 1;
 
     const { data: entries } = await sb
       .from('heat_entries')
       .select('lane_number, cars(car_number, kid_name)')
-      .eq('heat_id', state.current_heat_id)
+      .eq('heat_id', h.id)
       .order('lane_number');
 
-    renderBoard(heat, entries || []);
-    loadHeatList(state.current_round_id, state.current_heat_id);
-  }
-
-  function renderEmptyBoard() {
-    document.getElementById('laneBoard').innerHTML = [1, 2, 3, 4].map(l => `
-      <div class="lane-card">
-        <div class="lane-label">Lane ${l}</div>
-        <div class="car-number">—</div>
-      </div>`).join('');
-  }
-
-  function renderBoard(heat, entries) {
-    const roundNum = heat.rounds?.round_number ?? '?';
-    document.getElementById('heatTitle').textContent =
-      `Round ${roundNum} — Heat ${heat.heat_number}`;
-
-    const badge = document.getElementById('heatStatus');
-    badge.textContent = heat.status.charAt(0).toUpperCase() + heat.status.slice(1);
-    badge.className   = `badge badge-${heat.status}`;
-
-    const hint = document.getElementById('controlHint');
-    if (heat.status === 'completed') {
-      hint.textContent = 'This heat is done. Click "Next Heat" to advance.';
-    } else if (heat.status === 'active') {
-      hint.textContent = 'Heat is live — enter results before advancing.';
-    } else {
-      hint.textContent = 'Click "Next Heat" to activate this heat.';
-    }
-
-    // Build lane lookup
     const lanes = {};
-    entries.forEach(e => lanes[e.lane_number] = e.cars);
+    (entries || []).forEach(e => lanes[e.lane_number] = e.cars);
 
     document.getElementById('laneBoard').innerHTML = [1, 2, 3, 4].map(l => {
       const car = lanes[l];
@@ -149,111 +113,29 @@
         <div class="lane-card">
           <div class="lane-label">Lane ${l}</div>
           <div class="car-number">${car ? car.car_number : '—'}</div>
-          <div class="kid-name">${car ? car.kid_name : 'Empty'}</div>
+          <div class="kid-name">${car ? car.kid_name : ''}</div>
         </div>`;
     }).join('');
   }
 
-  // ── All heats in current round ─────────────────────────────────
-  async function loadHeatList(roundId, currentHeatId) {
-    const { data: heats } = await sb
-      .from('heats')
-      .select('id, heat_number, status')
-      .eq('round_id', roundId)
-      .order('heat_number');
-
-    if (!heats?.length) {
-      document.getElementById('heatList').innerHTML =
-        '<div class="empty-state">No heats generated yet.</div>';
-      return;
-    }
-
-    document.getElementById('heatList').innerHTML = heats.map(h => `
-      <div class="leaderboard-row" style="${h.id === currentHeatId ? 'border-color:var(--accent2)' : ''}">
-        <div class="rank">${h.heat_number}</div>
-        <div class="name">Heat ${h.heat_number}</div>
-        <span class="badge badge-${h.status}">${h.status}</span>
-        ${h.id === currentHeatId ? '<span style="font-size:0.8rem;color:var(--accent2);font-weight:700;">← Current</span>' : ''}
-      </div>
-    `).join('');
+  function renderEmptyBoard() {
+    document.getElementById('laneBoard').innerHTML = [1,2,3,4].map(l => `
+      <div class="lane-card">
+        <div class="lane-label">Lane ${l}</div>
+        <div class="car-number">—</div>
+      </div>`).join('');
   }
 
-  // ── Advance to next heat ───────────────────────────────────────
-  async function advanceHeat() {
-    const btn = document.getElementById('nextHeatBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span>';
+  // Auto-refresh: if we're viewing the current heat, keep it live
+  setInterval(async () => {
+    if (!allHeats.length) { init(); return; }
+    const { data: state } = await sb
+      .from('race_state').select('current_heat_id').eq('id', 1).single();
+    const currentIdx = allHeats.findIndex(h => h.id === state?.current_heat_id);
+    // Only auto-jump if user is on current heat
+    if (currentIdx >= 0 && viewIndex === currentIdx) showHeat(currentIdx);
+  }, 10000);
 
-    try {
-      const { data: state } = await sb
-        .from('race_state')
-        .select('current_round_id, current_heat_id')
-        .eq('id', 1)
-        .single();
-
-      if (!state?.current_round_id) {
-        toast('No active round. Start one from the Rounds page.', false);
-        return;
-      }
-
-      const currentHeatId = state.current_heat_id;
-
-      // Check current heat has results before advancing (unless it's the first)
-      if (currentHeatId) {
-        const { data: result } = await sb
-          .from('heat_results')
-          .select('id')
-          .eq('heat_id', currentHeatId)
-          .maybeSingle();
-
-        if (!result) {
-          toast('Enter results for the current heat first!', false);
-          return;
-        }
-
-        // Mark current heat completed
-        await sb.from('heats').update({ status: 'completed' }).eq('id', currentHeatId);
-      }
-
-      // Find next pending heat in this round
-      const { data: nextHeat } = await sb
-        .from('heats')
-        .select('id, heat_number')
-        .eq('round_id', state.current_round_id)
-        .eq('status', 'pending')
-        .order('heat_number')
-        .limit(1)
-        .maybeSingle();
-
-      if (!nextHeat) {
-        toast('All heats in this round are done! Go to Rounds to close round.', false);
-        // Still update state to reflect completed last heat
-        await sb.from('race_state').update({ updated_at: new Date().toISOString() }).eq('id', 1);
-        loadCurrentHeat();
-        return;
-      }
-
-      // Activate next heat
-      await sb.from('heats').update({ status: 'active' }).eq('id', nextHeat.id);
-      await sb.from('race_state').update({
-        current_heat_id: nextHeat.id,
-        updated_at: new Date().toISOString()
-      }).eq('id', 1);
-
-      toast(`Heat ${nextHeat.heat_number} is now active!`);
-      loadCurrentHeat();
-
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = '▶ Next Heat';
-    }
-  }
-
-  // ── Init  ─────────────────────────────────────────────────────
-  loadCurrentHeat();
-
-  // Auto-refresh every 10 seconds
-  setInterval(loadCurrentHeat, 10000);
+  init();
 </script>
 </body>
-</html>
