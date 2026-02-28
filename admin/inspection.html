@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inspection — Pinewood Derby</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+
+<nav class="top-nav">
+  <span class="brand">🏎️ Derby</span>
+  <a href="index.html">Hub</a>
+  <a href="inspection.html" class="active">Inspection</a>
+  <a href="track.html">Track</a>
+  <a href="results.html">Results</a>
+  <a href="rounds.html">Rounds</a>
+</nav>
+
+<div class="container">
+
+  <!-- Tally bar -->
+  <div class="status-bar" id="tallyBar" style="grid-template-columns: repeat(3, 1fr)">
+    <div class="stat-item">
+      <div class="stat-val" id="tallyLegal">—</div>
+      <div class="stat-label">✅ Legal</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val" id="tallyIllegal">—</div>
+      <div class="stat-label">❌ Not Legal</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val" id="tallyPending">—</div>
+      <div class="stat-label">⏳ Pending</div>
+    </div>
+  </div>
+
+  <!-- Scanner card -->
+  <div class="card">
+    <div class="card-title">Scan Family QR Code</div>
+    <div id="reader" style="border-radius:10px; overflow:hidden;"></div>
+    <p style="text-align:center; margin:12px 0 8px; color:var(--muted); font-size:0.85rem;">— or enter token manually —</p>
+    <div style="display:flex; gap:8px;">
+      <input type="text" id="tokenInput" placeholder="Paste token…" style="margin:0; flex:1;" />
+      <button class="btn btn-primary" id="lookupBtn">Look Up</button>
+    </div>
+  </div>
+
+  <!-- Family cars panel (hidden until a token is scanned) -->
+  <div class="card" id="familyCard" style="display:none;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+      <div class="card-title" style="margin:0;">Family Cars</div>
+      <button class="btn btn-ghost" id="clearBtn" style="padding:6px 14px; font-size:0.85rem;">Clear ✕</button>
+    </div>
+    <div id="carList"></div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script src="../config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ── debounce state ─────────────────────────────────────────────
+  let lastToken   = null;
+  let lastScanAt  = 0;
+  const DEBOUNCE  = 3000; // ms — ignore same token for 3 s after scan
+
+  function toast(msg, ok = true) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className   = ok ? 'show ok' : 'show err';
+    setTimeout(() => el.className = '', 3000);
+  }
+
+  // ── QR scanner (runs forever, never stops) ────────────────────
+  const scanner = new Html5Qrcode('reader');
+  scanner.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 240, height: 240 } },
+    token => {
+      const now = Date.now();
+      if (token === lastToken && now - lastScanAt < DEBOUNCE) return; // debounce
+      lastToken  = token;
+      lastScanAt = now;
+      lookupToken(token.trim());
+    },
+    () => {} // ignore per-frame errors
+  ).catch(err => {
+    document.getElementById('reader').innerHTML =
+      `<p style="color:var(--muted);font-size:0.85rem;padding:12px;">Camera unavailable — use manual entry. (${err.message})</p>`;
+  });
+
+  // ── Token lookup ──────────────────────────────────────────────
+  document.getElementById('lookupBtn').addEventListener('click', () => {
+    const t = document.getElementById('tokenInput').value.trim();
+    if (t) { lastToken = t; lastScanAt = Date.now(); lookupToken(t); }
+  });
+  document.getElementById('tokenInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const t = e.target.value.trim();
+      if (t) { lastToken = t; lastScanAt = Date.now(); lookupToken(t); }
+    }
+  });
+
+  async function lookupToken(token) {
+    const { data: cars, error } = await sb
+      .from('cars')
+      .select('*')
+      .eq('device_token', token)
+      .order('car_number');
+
+    if (error || !cars?.length) {
+      toast('No cars found for that QR code.', false);
+      return;
+    }
+
+    document.getElementById('tokenInput').value = '';
+    showFamilyCars(cars);
+    loadTally();
+  }
+
+  function showFamilyCars(cars) {
+    const list = document.getElementById('carList');
+    list.innerHTML = cars.map(car => `
+      <div class="insp-car-row" id="row_${car.id}">
+        <div class="insp-info">
+          <div class="insp-num">#${car.car_number}</div>
+          <div class="insp-name">${car.kid_name}</div>
+          <span class="badge badge-${car.legal_status}" id="badge_${car.id}">
+            ${statusLabel(car.legal_status)}
+          </span>
+        </div>
+        <div class="insp-btns">
+          <button class="insp-btn legal-btn ${car.legal_status === 'legal' ? 'active' : ''}"
+                  onclick="setStatus(${car.id}, 'legal')">✅ Legal</button>
+          <button class="insp-btn illegal-btn ${car.legal_status === 'not_legal' ? 'active' : ''}"
+                  onclick="setStatus(${car.id}, 'not_legal')">❌ Not Legal</button>
+        </div>
+      </div>
+    `).join('');
+    document.getElementById('familyCard').style.display = 'block';
+    document.getElementById('familyCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function statusLabel(s) {
+    return s === 'legal' ? '✅ Legal' : s === 'not_legal' ? '❌ Not Legal' : '⏳ Pending';
+  }
+
+  async function setStatus(carId, status) {
+    const { error } = await sb.from('cars').update({ legal_status: status }).eq('id', carId);
+    if (error) { toast('Update failed: ' + error.message, false); return; }
+
+    // Update badge
+    const badge = document.getElementById('badge_' + carId);
+    if (badge) { badge.className = `badge badge-${status}`; badge.textContent = statusLabel(status); }
+
+    // Update button active states
+    const row = document.getElementById('row_' + carId);
+    if (row) {
+      row.querySelector('.legal-btn').classList.toggle('active', status === 'legal');
+      row.querySelector('.illegal-btn').classList.toggle('active', status === 'not_legal');
+    }
+
+    toast(status === 'legal' ? '✅ Marked Legal' : '❌ Marked Not Legal');
+    loadTally();
+  }
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    document.getElementById('familyCard').style.display = 'none';
+    document.getElementById('carList').innerHTML = '';
+    lastToken  = null;
+    lastScanAt = 0;
+  });
+
+  async function loadTally() {
+    const { data } = await sb.from('cars').select('legal_status');
+    if (!data) return;
+    document.getElementById('tallyLegal').textContent   = data.filter(c => c.legal_status === 'legal').length;
+    document.getElementById('tallyIllegal').textContent = data.filter(c => c.legal_status === 'not_legal').length;
+    document.getElementById('tallyPending').textContent = data.filter(c => c.legal_status === 'pending').length;
+  }
+
+  // ── Init ─────────────────────────────────────────────────────
+  loadTally();
+</script>
+</body>
+</html>

@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Display — Pinewood Derby</title>
+  <link rel="stylesheet" href="../styles.css" />
+  <style>
+    body { overflow: hidden; }
+
+    .display-root {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      height: 100vh;
+    }
+
+    .display-header {
+      background: var(--surface);
+      border-bottom: 2px solid var(--accent);
+      padding: 14px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .display-header .event-title {
+      font-size: 1.6rem;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .display-header .heat-info {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .display-body {
+      display: grid;
+      grid-template-columns: 55% 45%;
+      overflow: hidden;
+    }
+
+    /* ── Left: lanes ── */
+    .lanes-panel {
+      padding: 32px;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+
+    .lane-rows { display: flex; flex-direction: column; gap: 14px; flex: 1; }
+
+    .lane-row {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 24px;
+      flex: 1;
+    }
+
+    .lane-row .ln-label {
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      min-width: 60px;
+    }
+
+    .lane-row .ln-num {
+      font-size: 3rem;
+      font-weight: 900;
+      color: var(--accent);
+      line-height: 1;
+      min-width: 80px;
+      text-align: center;
+    }
+
+    .lane-row .ln-name {
+      font-size: 1.8rem;
+      font-weight: 700;
+      flex: 1;
+    }
+
+    /* ── Right: leaderboard ── */
+    .board-panel {
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .board-rows { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+
+    .board-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 20px;
+      flex: 1;
+    }
+
+    .board-row.pos-1 { border-color: #ffd700; background: #1a1600; }
+    .board-row.pos-2 { border-color: #c0c0c0; background: #141414; }
+    .board-row.pos-3 { border-color: #cd7f32; background: #160e06; }
+
+    .board-row .bd-pos {
+      font-size: 1.8rem;
+      font-weight: 900;
+      min-width: 44px;
+      color: var(--muted);
+    }
+
+    .board-row.pos-1 .bd-pos { color: #ffd700; }
+    .board-row.pos-2 .bd-pos { color: #c0c0c0; }
+    .board-row.pos-3 .bd-pos { color: #cd7f32; }
+
+    .board-row .bd-carnum {
+      font-size: 1.8rem;
+      font-weight: 900;
+      color: var(--accent);
+      min-width: 60px;
+    }
+
+    .board-row .bd-name {
+      flex: 1;
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+
+    .board-row .bd-pts {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    /* ── Waiting state ── */
+    .waiting {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 16px;
+    }
+
+    .waiting .big-icon { font-size: 6rem; }
+    .waiting h2 { font-size: 2rem; color: var(--muted); }
+
+    /* ── Ticker ── */
+    .refresh-dot {
+      width: 8px; height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      display: inline-block;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+
+    @media (max-width: 800px) {
+      .display-body { grid-template-columns: 1fr; overflow: auto; }
+      body { overflow: auto; }
+      .lane-row .ln-num  { font-size: 2rem; }
+      .lane-row .ln-name { font-size: 1.2rem; }
+    }
+  </style>
+</head>
+<body class="display-page">
+
+<div class="display-root">
+
+  <header class="display-header">
+    <div class="event-title">🏎️ Pinewood Derby</div>
+    <div class="heat-info">
+      <div id="heatInfoText">Loading…</div>
+      <div style="font-size:0.75rem; margin-top:2px;">
+        <span class="refresh-dot"></span>
+        Live
+      </div>
+    </div>
+  </header>
+
+  <div class="display-body">
+
+    <!-- Left: current lanes -->
+    <div class="lanes-panel">
+      <div class="panel-title">Now Racing</div>
+      <div class="lane-rows" id="laneRows">
+        <div class="waiting">
+          <div class="big-icon">🏁</div>
+          <h2>Waiting to start…</h2>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: leaderboard -->
+    <div class="board-panel">
+      <div class="panel-title">Top Competitors</div>
+      <div class="board-rows" id="boardRows">
+        <div class="waiting">
+          <div class="big-icon">🏆</div>
+          <h2>No results yet</h2>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="../config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ── Refresh data ──────────────────────────────────────────────
+  async function refresh() {
+    const { data: state } = await sb
+      .from('race_state')
+      .select('current_round_id, current_heat_id, heats(heat_number, rounds(round_number))')
+      .eq('id', 1)
+      .single();
+
+    updateHeatInfo(state);
+    await Promise.all([
+      updateLanes(state?.current_heat_id ?? null),
+      updateLeaderboard(state?.current_round_id ?? null)
+    ]);
+  }
+
+  function updateHeatInfo(state) {
+    const heat  = state?.heats;
+    const round = heat?.rounds;
+    const el    = document.getElementById('heatInfoText');
+    if (heat && round) {
+      el.textContent = `Round ${round.round_number} — Heat ${heat.heat_number}`;
+    } else {
+      el.textContent = 'No active heat';
+    }
+  }
+
+  // ── Lanes panel ───────────────────────────────────────────────
+  async function updateLanes(heatId) {
+    const el = document.getElementById('laneRows');
+
+    if (!heatId) {
+      el.innerHTML = `
+        <div class="waiting">
+          <div class="big-icon">🏁</div>
+          <h2>Waiting to start…</h2>
+        </div>`;
+      return;
+    }
+
+    const { data: entries } = await sb
+      .from('heat_entries')
+      .select('lane_number, cars(car_number, kid_name)')
+      .eq('heat_id', heatId)
+      .order('lane_number');
+
+    if (!entries?.length) {
+      el.innerHTML = `<div class="waiting"><h2>No lane data</h2></div>`;
+      return;
+    }
+
+    el.innerHTML = entries.map(e => `
+      <div class="lane-row">
+        <div class="ln-label">Lane ${e.lane_number}</div>
+        <div class="ln-num">${e.cars?.car_number ?? '—'}</div>
+        <div class="ln-name">${e.cars?.kid_name ?? '—'}</div>
+      </div>
+    `).join('');
+  }
+
+  // ── Leaderboard panel ─────────────────────────────────────────
+  async function updateLeaderboard(roundId) {
+    const el = document.getElementById('boardRows');
+
+    if (!roundId) {
+      el.innerHTML = `
+        <div class="waiting">
+          <div class="big-icon">🏆</div>
+          <h2>No results yet</h2>
+        </div>`;
+      return;
+    }
+
+    // Fetch results for current round
+    const { data: results } = await sb
+      .from('heat_results')
+      .select(`
+        first_place_car, second_place_car, third_place_car, fourth_place_car,
+        heats!inner(round_id)
+      `)
+      .eq('heats.round_id', roundId);
+
+    const { data: activeCars } = await sb
+      .from('cars')
+      .select('id, car_number, kid_name')
+      .eq('eliminated', false);
+
+    if (!activeCars?.length) {
+      el.innerHTML = `<div class="waiting"><h2>No active cars</h2></div>`;
+      return;
+    }
+
+    // Tally points
+    const pts = {};
+    activeCars.forEach(c => pts[c.id] = 0);
+    (results || []).forEach(r => {
+      if (pts[r.first_place_car]  !== undefined) pts[r.first_place_car]  += 1;
+      if (pts[r.second_place_car] !== undefined) pts[r.second_place_car] += 2;
+      if (pts[r.third_place_car]  !== undefined) pts[r.third_place_car]  += 3;
+      if (pts[r.fourth_place_car] !== undefined) pts[r.fourth_place_car] += 4;
+    });
+
+    const sorted = activeCars
+      .map(c => ({ ...c, points: pts[c.id] ?? 0 }))
+      .filter(c => c.points > 0)  // only show cars that have raced
+      .sort((a, b) => a.points - b.points || a.car_number - b.car_number)
+      .slice(0, 6);
+
+    if (!sorted.length) {
+      el.innerHTML = `
+        <div class="waiting">
+          <div class="big-icon">🏆</div>
+          <h2>No results yet</h2>
+        </div>`;
+      return;
+    }
+
+    const medals = ['🥇', '🥈', '🥉', '4', '5', '6'];
+    el.innerHTML = sorted.map((car, i) => `
+      <div class="board-row pos-${i + 1}">
+        <div class="bd-pos">${medals[i]}</div>
+        <div class="bd-carnum">#${car.car_number}</div>
+        <div class="bd-name">${car.kid_name}</div>
+        <div class="bd-pts">${car.points} pts</div>
+      </div>
+    `).join('');
+  }
+
+  // ── Live subscription (Supabase Realtime) ─────────────────────
+  sb.channel('display-channel')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'race_state' },   refresh)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'heat_results' }, refresh)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'heat_entries' }, refresh)
+    .subscribe();
+
+  // ── Init + poll fallback every 8 s ────────────────────────────
+  refresh();
+  setInterval(refresh, 8000);
+</script>
+</body>
+</html>

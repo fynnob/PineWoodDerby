@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🏎️ Derby Registration</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- Sticky header -->
+<div style="background:#fff; border-bottom:1px solid var(--border); padding:16px; box-shadow:var(--shadow); position:sticky; top:0; z-index:99;">
+  <div style="max-width:640px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span style="font-size:1.8rem;">🏎️</span>
+      <div>
+        <h1 style="font-size:1.2rem;">Pinewood Derby</h1>
+        <p style="font-size:0.75rem; margin:0;">Car Registration</p>
+      </div>
+    </div>
+    <button class="btn btn-primary btn-sm" id="showQrBtn" onclick="showDeviceQR()" style="display:none;">
+      📱 My QR
+    </button>
+  </div>
+</div>
+
+<div class="container" style="padding-top:20px;">
+
+  <!-- Registration form -->
+  <div class="card">
+    <div class="card-title">Register a Car</div>
+
+    <label for="kidName">Racer's Name</label>
+    <input type="text" id="kidName" placeholder="e.g. Alex Johnson" maxlength="80"
+           autocomplete="off" autocapitalize="words" />
+
+    <label for="carImage">Car Photo <span style="color:var(--muted2); font-weight:400;">(optional)</span></label>
+    <input type="file" id="carImage" accept="image/*" capture="environment" />
+
+    <div id="imagePreviewWrap" style="display:none; margin-bottom:14px;">
+      <img id="imagePreview" src="" alt="preview"
+           style="max-height:160px; border-radius:10px; border:1px solid var(--border); display:block;" />
+    </div>
+
+    <button class="btn btn-gold btn-lg btn-full" id="registerBtn">
+      ➕ Register Car
+    </button>
+  </div>
+
+  <!-- QR code for this device (shown after first registration) -->
+  <div class="card" id="qrCard" style="display:none; text-align:center;">
+    <div class="card-title">Your Check-in QR Code</div>
+    <p style="margin-bottom:16px;">Show this ONE QR at inspection to check in ALL your cars at once.</p>
+    <div style="display:flex; justify-content:center; margin-bottom:16px;">
+      <div class="qr-block" id="deviceQrCanvas"></div>
+    </div>
+    <p style="font-size:0.78rem; color:var(--muted2);">One QR covers all cars registered from this device.</p>
+  </div>
+
+  <!-- Registered cars for this device -->
+  <div class="card">
+    <div class="card-title">Your Registered Cars</div>
+    <div id="carList">
+      <div class="empty-state">No cars registered from this device yet.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Full-screen QR modal (bottom sheet on mobile) -->
+<div class="modal-overlay" id="qrModal" onclick="closeQR(event)">
+  <div class="modal-sheet">
+    <div style="font-size:0.75rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px;">Your Check-in QR</div>
+    <div style="display:flex; justify-content:center; margin-bottom:16px;">
+      <div class="qr-block" id="qrCanvas"></div>
+    </div>
+    <p style="font-size:0.85rem; margin-bottom:20px;">
+      Show this at inspection — it covers all your cars.
+    </p>
+    <button class="btn btn-ghost btn-full" onclick="closeQR()">Close</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- Dependencies -->
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+  const sb        = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const STORE_KEY  = 'derby_my_cars';
+  const TOKEN_KEY  = 'derby_device_token';
+
+  // ── Device token (one per browser / device) ───────────────────
+  // All cars registered here share this token so inspection can
+  // scan ONE QR and see the whole family's cars at once.
+  function getDeviceToken() {
+    let t = localStorage.getItem(TOKEN_KEY);
+    if (!t) {
+      t = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
+      localStorage.setItem(TOKEN_KEY, t);
+    }
+    return t;
+  }
+
+  // ── Toast ─────────────────────────────────────────────────────
+  function toast(msg, ok = true) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = ok ? 'show ok' : 'show err';
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.className = '', 3000);
+  }
+
+  // ── localStorage helpers ──────────────────────────────────────
+  function getMyCars() { return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); }
+  function saveMyCar(car) {
+    const list = getMyCars(); list.push(car);
+    localStorage.setItem(STORE_KEY, JSON.stringify(list));
+  }
+
+  // ── Image preview ─────────────────────────────────────────────
+  document.getElementById('carImage').addEventListener('change', function () {
+    const file = this.files[0]; if (!file) return;
+    document.getElementById('imagePreview').src = URL.createObjectURL(file);
+    document.getElementById('imagePreviewWrap').style.display = 'block';
+  });
+
+  // ── Register ──────────────────────────────────────────────────
+  document.getElementById('registerBtn').addEventListener('click', async () => {
+    const kidName    = document.getElementById('kidName').value.trim();
+    const fileEl     = document.getElementById('carImage');
+    const file       = fileEl.files[0];
+    const deviceToken = getDeviceToken();
+
+    if (!kidName) { toast('Enter the racer\'s name first.', false); return; }
+
+    const btn = document.getElementById('registerBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Registering…';
+
+    try {
+      let imageUrl = null;
+
+      if (file) {
+        const ext      = file.name.split('.').pop();
+        const fileName = `car_${Date.now()}.${ext}`;
+        const { error: upErr } = await sb.storage
+          .from('car-images')
+          .upload(fileName, file, { contentType: file.type, upsert: false });
+        if (upErr) throw upErr;
+        imageUrl = sb.storage.from('car-images').getPublicUrl(fileName).data.publicUrl;
+      }
+
+      // car_number is auto-assigned by DB trigger; device_token links all family cars
+      const { data: car, error: carErr } = await sb
+        .from('cars')
+        .insert({ kid_name: kidName, image_url: imageUrl, device_token: deviceToken })
+        .select()
+        .single();
+
+      if (carErr) throw carErr;
+
+      saveMyCar(car);
+      renderCarList();
+      renderDeviceQR();
+
+      document.getElementById('kidName').value = '';
+      fileEl.value = '';
+      document.getElementById('imagePreviewWrap').style.display = 'none';
+
+      toast(`Car #${car.car_number} registered! 🏁`);
+    } catch (err) {
+      console.error(err);
+      toast('Registration failed — ' + err.message, false);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '➕ Register Car';
+    }
+  });
+
+  // ── Device QR (covers all cars from this device) ──────────────
+  let qrRendered = false;
+
+  function renderDeviceQR() {
+    const list = getMyCars();
+    if (!list.length) return;
+
+    document.getElementById('qrCard').style.display = 'block';
+    document.getElementById('showQrBtn').style.display = 'inline-flex';
+
+    if (!qrRendered) {
+      const canvas = document.getElementById('deviceQrCanvas');
+      canvas.innerHTML = '';
+      new QRCode(canvas, {
+        text:         getDeviceToken(),
+        width:        220, height: 220,
+        colorDark:    '#000', colorLight: '#fff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+      qrRendered = true;
+    }
+  }
+
+  function showDeviceQR() {
+    const canvas = document.getElementById('qrCanvas');
+    canvas.innerHTML = '';
+    new QRCode(canvas, {
+      text:         getDeviceToken(),
+      width:        240, height: 240,
+      colorDark:    '#000', colorLight: '#fff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    document.getElementById('qrModal').classList.add('open');
+  }
+
+  function closeQR(e) {
+    if (!e || e.target.id === 'qrModal' || e.target.tagName === 'BUTTON') {
+      document.getElementById('qrModal').classList.remove('open');
+    }
+  }
+
+  // ── Car list ──────────────────────────────────────────────────
+  function statusLabel(s) {
+    return s === 'legal' ? '✅ Legal' : s === 'not_legal' ? '❌ Not Legal' : '⏳ Pending';
+  }
+
+  function renderCarList() {
+    const list = getMyCars();
+    const el   = document.getElementById('carList');
+
+    if (!list.length) {
+      el.innerHTML = '<div class="empty-state">No cars registered from this device yet.</div>';
+      return;
+    }
+
+    el.innerHTML = list.map(car => `
+      <div class="car-list-item">
+        <img src="${car.image_url || ''}"
+             onerror="this.style.display='none'"
+             alt="${car.kid_name}" />
+        <div class="info">
+          <div class="num">#${car.car_number}</div>
+          <div class="name">${car.kid_name}</div>
+          <div style="margin-top:4px;">
+            <span class="badge badge-${car.legal_status}" id="badge_${car.id}">${statusLabel(car.legal_status)}</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+
+    refreshStatuses(list.map(c => c.id));
+  }
+
+  async function refreshStatuses(ids) {
+    const { data } = await sb.from('cars').select('id,legal_status').in('id', ids);
+    if (!data) return;
+    const map = {};
+    data.forEach(r => map[r.id] = r.legal_status);
+    const list = getMyCars().map(c => ({ ...c, legal_status: map[c.id] || c.legal_status }));
+    localStorage.setItem(STORE_KEY, JSON.stringify(list));
+    list.forEach(car => {
+      const b = document.getElementById('badge_' + car.id);
+      if (b) { b.className = `badge badge-${car.legal_status}`; b.textContent = statusLabel(car.legal_status); }
+    });
+  }
+
+  // ── Init ──────────────────────────────────────────────────────
+  getDeviceToken(); // ensure token exists early
+  renderCarList();
+  renderDeviceQR();
+</script>
+</body>
+</html>
