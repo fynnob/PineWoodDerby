@@ -135,11 +135,19 @@
             ${statusLabel(car.legal_status)}
           </span>
         </div>
-        <div class="insp-btns">
-          <button class="insp-btn legal-btn ${car.legal_status === 'legal' ? 'active' : ''}"
-                  onclick="setStatus(${car.id}, 'legal')">✅ Legal</button>
-          <button class="insp-btn illegal-btn ${car.legal_status === 'not_legal' ? 'active' : ''}"
-                  onclick="setStatus(${car.id}, 'not_legal')">❌ Not Legal</button>
+        <div class="insp-btns" style="display:flex;gap:8px;flex-shrink:0;">
+          <label class="insp-radio-label legal">
+            <input type="radio" name="status_${car.id}" value="legal"
+                   ${car.legal_status === 'legal' ? 'checked' : ''}
+                   onchange="setStatus('${car.id}', 'legal')">
+            ✅ Legal
+          </label>
+          <label class="insp-radio-label illegal">
+            <input type="radio" name="status_${car.id}" value="not_legal"
+                   ${car.legal_status === 'not_legal' ? 'checked' : ''}
+                   onchange="setStatus('${car.id}', 'not_legal')">
+            ❌ Not Legal
+          </label>
         </div>
       </div>
     `).join('');
@@ -151,24 +159,32 @@
     return s === 'legal' ? '✅ Legal' : s === 'not_legal' ? '❌ Not Legal' : '⏳ Pending';
   }
 
+  function applyStatusUI(carId, status) {
+    const badge = document.getElementById('badge_' + carId);
+    if (badge) { badge.className = `badge badge-${status}`; badge.textContent = statusLabel(status); }
+    // Sync radio checked state (handles updates pushed from other devices)
+    const row = document.getElementById('row_' + carId);
+    if (row) {
+      const radio = row.querySelector(`input[value="${status}"]`);
+      if (radio) radio.checked = true;
+    }
+  }
+
   async function setStatus(carId, status) {
     const { error } = await sb.from('cars').update({ legal_status: status }).eq('id', carId);
     if (error) { toast('Update failed: ' + error.message, false); return; }
-
-    // Update badge
-    const badge = document.getElementById('badge_' + carId);
-    if (badge) { badge.className = `badge badge-${status}`; badge.textContent = statusLabel(status); }
-
-    // Update button active states
-    const row = document.getElementById('row_' + carId);
-    if (row) {
-      row.querySelector('.legal-btn').classList.toggle('active', status === 'legal');
-      row.querySelector('.illegal-btn').classList.toggle('active', status === 'not_legal');
-    }
-
+    applyStatusUI(carId, status);
     toast(status === 'legal' ? '✅ Marked Legal' : '❌ Marked Not Legal');
     loadTally();
   }
+
+  // ── Realtime: reflect changes from other devices ──────────────
+  sb.channel('insp-cars')
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'cars' }, payload => {
+      applyStatusUI(payload.new.id, payload.new.legal_status);
+      loadTally();
+    })
+    .subscribe();
 
   document.getElementById('clearBtn').addEventListener('click', () => {
     document.getElementById('familyCard').style.display = 'none';

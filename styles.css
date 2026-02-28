@@ -290,17 +290,16 @@ input:focus, select:focus, textarea:focus {
 .insp-car-row .insp-name  { font-weight: 600; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .insp-car-row .insp-btns  { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
 
-.insp-btn {
-  min-height: 40px; padding: 0 12px; border-radius: 8px;
-  font-size: 0.82rem; font-weight: 700; border: 1.5px solid;
-  cursor: pointer; transition: background 0.15s, color 0.15s;
-  font-family: var(--font); display: inline-flex; align-items: center; gap: 4px;
+.insp-radio-label {
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 16px; height: 44px; border-radius: 8px; min-width: 100px;
+  font-size: 0.85rem; font-weight: 700; border: 1.5px solid var(--border);
+  cursor: pointer; font-family: var(--font); user-select: none;
+  background: var(--surface); color: var(--muted2);
 }
-
-.insp-btn.legal-btn   { background: var(--success-bg); border-color: var(--success); color: var(--success); }
-.insp-btn.legal-btn.active, .insp-btn.legal-btn:hover { background: var(--success); color: #fff; }
-.insp-btn.illegal-btn { background: var(--danger-bg);  border-color: var(--danger);  color: var(--danger); }
-.insp-btn.illegal-btn.active, .insp-btn.illegal-btn:hover { background: var(--danger); color: #fff; }
+.insp-radio-label input[type="radio"] { display: none; }
+.insp-radio-label.legal:has(input:checked)   { background: var(--success); border-color: var(--success); color: #fff; }
+.insp-radio-label.illegal:has(input:checked) { background: var(--danger);  border-color: var(--danger);  color: #fff; }
 
 /* ── QR block ───────────────────────────────────────────────── */
 .qr-block {

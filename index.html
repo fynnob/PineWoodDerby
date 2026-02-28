@@ -266,6 +266,20 @@
     });
   }
 
+  // ── Realtime: push legal_status changes to this device's badges ─
+  sb.channel('parent-cars')
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'cars' }, payload => {
+      const car = payload.new;
+      const badge = document.getElementById('badge_' + car.id);
+      if (!badge) return;
+      badge.className   = `badge badge-${car.legal_status}`;
+      badge.textContent = statusLabel(car.legal_status);
+      // keep localStorage in sync
+      const list = getMyCars().map(c => c.id === car.id ? { ...c, legal_status: car.legal_status } : c);
+      localStorage.setItem(STORE_KEY, JSON.stringify(list));
+    })
+    .subscribe();
+
   // ── Init ──────────────────────────────────────────────────────
   getDeviceToken(); // ensure token exists early
   renderCarList();
