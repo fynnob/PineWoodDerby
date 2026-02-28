@@ -158,8 +158,8 @@
 </div>
 
 <!-- Family overlay (slides up over camera) -->
-<div class="family-overlay" id="familyOverlay" onclick="closeFamilyOverlay(event)">
-  <div class="family-sheet" id="familySheet">
+<div class="family-overlay" id="familyOverlay" onclick="dismissFamily()">
+  <div class="family-sheet" id="familySheet" onclick="event.stopPropagation()">
     <div class="sheet-handle"></div>
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
       <div style="font-weight:800; font-size:1.1rem;">Family Cars</div>
@@ -264,14 +264,6 @@
     `).join('');
 
     document.getElementById('familyOverlay').classList.add('open');
-  }
-
-  function closeFamilyOverlay(e) {
-    // Only close when tapping the dark backdrop or the Done button
-    if (!e || e.target.id === 'familyOverlay') {
-      document.getElementById('familyOverlay').classList.remove('open');
-      lastToken = null; lastScanAt = 0;
-    }
   }
 
   function dismissFamily() {
