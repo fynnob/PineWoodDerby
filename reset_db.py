@@ -28,10 +28,9 @@ HEADERS = {
 
 
 def delete_all(table: str) -> None:
-    """Delete every row in a table using the Supabase REST API's gt trick."""
-    # Supabase REST requires at least one filter — 'id=gte.0' or similar.
-    # For UUID PKs we use 'created_at=gte.1970-01-01' which matches everything.
-    url = f"{SUPABASE_URL}/rest/v1/{table}?created_at=gte.1970-01-01"
+    """Delete every row in a table using the Supabase REST API."""
+    # UUID PKs: gte the nil UUID matches every row
+    url = f"{SUPABASE_URL}/rest/v1/{table}?id=gte.00000000-0000-0000-0000-000000000000"
     r = requests.delete(url, headers=HEADERS)
     if r.status_code not in (200, 204):
         print(f"  ERROR deleting {table}: {r.status_code} — {r.text}")
@@ -62,12 +61,12 @@ def main() -> None:
 
     print("\nDeleting data (order respects foreign keys)…")
 
-    # Must delete children before parents
+    # Null out race_state FK references first so heats/rounds can be deleted
+    reset_race_state()
     delete_all("heat_results")
     delete_all("heat_entries")
     delete_all("heats")
     delete_all("rounds")
-    reset_race_state()
     delete_all("cars")
 
     print("\n✅  Database cleared successfully.\n")
