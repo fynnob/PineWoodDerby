@@ -389,7 +389,7 @@
         <p style="margin-bottom:12px; font-size:0.88rem;">How many cars advance to Round ${round.round_number + 1}?<br>
         <span style="font-size:0.8rem; color:var(--muted);">(Pending &amp; not-legal cars are excluded from count)</span></p>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-          <input type="number" id="advanceCount" min="2" max="99" placeholder="e.g. 4"
+          <input type="number" id="advanceCount" min="4" max="99" placeholder="e.g. 4"
                  style="width:110px; margin:0;" />
           <button class="btn btn-primary" onclick="closeRound('${currentRoundId}', ${round.round_number})">
             Confirm &amp; Start Round ${round.round_number + 1}
@@ -425,7 +425,7 @@
   // ── Close round + start next ───────────────────────────────────
   async function closeRound(roundId, roundNumber) {
     const advCount = parseInt(document.getElementById('advanceCount').value);
-    if (!advCount || advCount < 2) { toast('Enter a valid advance count (≥ 2).', false); return; }
+    if (!advCount || advCount < 4) { toast('Need at least 4 cars to advance (minimum for a heat).', false); return; }
 
     const { data: results } = await sb.from('heat_results')
       .select('first_place_car, second_place_car, third_place_car, fourth_place_car, heats!inner(round_id)')
