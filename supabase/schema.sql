@@ -142,6 +142,13 @@ ALTER TABLE heat_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE heat_results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE race_state   ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "anon_all" ON cars;
+DROP POLICY IF EXISTS "anon_all" ON rounds;
+DROP POLICY IF EXISTS "anon_all" ON heats;
+DROP POLICY IF EXISTS "anon_all" ON heat_entries;
+DROP POLICY IF EXISTS "anon_all" ON heat_results;
+DROP POLICY IF EXISTS "anon_all" ON race_state;
+
 CREATE POLICY "anon_all" ON cars         FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "anon_all" ON rounds       FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "anon_all" ON heats        FOR ALL TO anon USING (true) WITH CHECK (true);
@@ -157,6 +164,9 @@ CREATE POLICY "anon_all" ON race_state   FOR ALL TO anon USING (true) WITH CHECK
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('car-images', 'car-images', true)
 ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "anon_upload" ON storage.objects;
+DROP POLICY IF EXISTS "anon_read"   ON storage.objects;
 
 CREATE POLICY "anon_upload" ON storage.objects
   FOR INSERT TO anon
