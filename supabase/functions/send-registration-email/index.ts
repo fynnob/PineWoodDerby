@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
 
     console.log("[email] Sending email to:", to, "...");
     const info = await transporter.sendMail({
-      from: '"Pinewood Derby 🏎️" <pwd@fynn.qzz.io>',
+      from: '"Pinewood Derby 🏎️" <fynn@fynn.qzz.io>',
       to,
       subject: `Your Pinewood Derby Check-in QR Code 🏁`,
       html: `<!DOCTYPE html>
