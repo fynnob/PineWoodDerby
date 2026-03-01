@@ -15,17 +15,24 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    const { to, device_token, short_code, reg_url } =
-      await req.json() as {
-        to: string;
-        device_token: string;
-        short_code: string;
-        reg_url: string;
-      };
+    console.log("[email] Function invoked, method:", req.method);
+
+    const body = await req.json() as {
+      to: string;
+      device_token: string;
+      short_code: string;
+      reg_url: string;
+    };
+    const { to, device_token, short_code, reg_url } = body;
+    console.log("[email] Payload — to:", to, "| short_code:", short_code, "| device_token length:", device_token?.length, "| reg_url:", reg_url);
+
+    if (!to) throw new Error("Missing 'to' email address in payload");
 
     const smtpPass = Deno.env.get("SMTP_PASSWORD");
+    console.log("[email] SMTP_PASSWORD present:", !!smtpPass);
     if (!smtpPass) throw new Error("SMTP_PASSWORD secret not set");
 
+    console.log("[email] Creating SMTP transporter (smtp.zoho.eu:587)...");
     const transporter = nodemailer.createTransport({
       host: "smtp.zoho.eu",
       port: 587,
@@ -33,10 +40,15 @@ Deno.serve(async (req) => {
       auth: { user: "fynn@fynn.qzz.io", pass: smtpPass },
     });
 
+    console.log("[email] Verifying SMTP connection...");
+    await transporter.verify();
+    console.log("[email] SMTP connection verified OK");
+
     const qrUrl =
       `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(device_token)}&bgcolor=ffffff&color=1a1e2e&margin=14`;
 
-    await transporter.sendMail({
+    console.log("[email] Sending email to:", to, "...");
+    const info = await transporter.sendMail({
       from: '"Pinewood Derby 🏎️" <pwd@fynn.qzz.io>',
       to,
       subject: `Your Pinewood Derby Check-in QR Code 🏁`,
@@ -233,13 +245,17 @@ Deno.serve(async (req) => {
 </body>
 </html>`,
     });
+    console.log("[email] Email sent! messageId:", info.messageId, "| response:", info.response);
 
-    return new Response(JSON.stringify({ ok: true }), {
+    return new Response(JSON.stringify({ ok: true, messageId: info.messageId }), {
       headers: { ...CORS, "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("Email send error:", err);
-    return new Response(JSON.stringify({ error: String(err) }), {
+    console.error("[email] ERROR:", String(err));
+    console.error("[email] Error name:", (err as Error).name);
+    console.error("[email] Error message:", (err as Error).message);
+    console.error("[email] Error stack:", (err as Error).stack);
+    return new Response(JSON.stringify({ error: String(err), message: (err as Error).message }), {
       status: 500,
       headers: { ...CORS, "Content-Type": "application/json" },
     });

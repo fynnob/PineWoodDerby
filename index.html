@@ -201,9 +201,11 @@
       if (parentEmail && !alreadySentEmail) {
         try {
           const { data: state } = await sb.from('race_state').select('email_enabled').eq('id', 1).single();
+          console.log('[email] email_enabled:', state?.email_enabled, '| alreadySent:', !!alreadySentEmail, '| to:', parentEmail);
           if (state?.email_enabled) {
             const shortCode = tokenToShortCode(deviceToken);
-            const { error: fnErr } = await sb.functions.invoke('send-registration-email', {
+            console.log('[email] Invoking send-registration-email, shortCode:', shortCode);
+            const { data: fnData, error: fnErr } = await sb.functions.invoke('send-registration-email', {
               body: {
                 to:           parentEmail,
                 device_token: deviceToken,
@@ -211,13 +213,15 @@
                 reg_url:      location.href,
               }
             });
+            console.log('[email] Invoke result — data:', fnData, '| error:', fnErr);
             if (fnErr) throw fnErr;
             localStorage.setItem(EMAIL_SENT_KEY, '1');
             toast('Check-in QR sent to your email!');
           }
         } catch (emailErr) {
-          console.warn('Email send failed:', emailErr);
-          toast('Car registered! (Email send failed — check function deployment)', false);
+          console.error('Email send failed (full):', emailErr);
+          const msg = (emailErr as any)?.message || String(emailErr);
+          toast('Car registered! (Email failed: ' + msg + ')', false);
         }
       }
     } catch (err) {
