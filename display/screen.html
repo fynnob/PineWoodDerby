@@ -19,6 +19,7 @@
       --gold:   #ffd700;
       --silver: #b8bec8;
       --bronze: #cd7f32;
+      --green:  #22c55e;
     }
 
     body {
@@ -45,64 +46,121 @@
       text-transform: uppercase; color: var(--muted);
     }
 
-    /* Text slide */
-    .slide-text { font-size: 5rem; font-weight: 900; line-height: 1.15; max-width: 1300px; }
+    /* ── Text slide ── */
+    .slide-headline { font-size: clamp(3rem, 8vw, 7rem); font-weight: 900; line-height: 1.1; max-width: 1400px; }
+    .slide-subtitle { font-size: clamp(1.2rem, 2.5vw, 2.2rem); font-weight: 600; color: var(--muted); margin-top: 20px; max-width: 1200px; line-height: 1.4; }
 
-    /* Image slide — fills entire viewport */
+    /* ── Color-text slide ── */
+    .slide-color-bg {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 80px; text-align: center;
+    }
+
+    /* ── Image slide ── */
     .slide-image {
-      position: fixed; inset: 0; width: 100vw; height: 100vh;
+      position: fixed; inset: 0;
       display: flex; align-items: center; justify-content: center;
     }
-    .slide-image img {
-      width: 100vw; height: 100vh;
-      object-fit: cover;
-      object-position: center;
-    }
+    .slide-image img { width: 100vw; height: 100vh; object-fit: cover; object-position: center; }
 
-    /* Fullscreen button */
-    #fsBtn {
-      position: fixed; bottom: 18px; right: 18px; z-index: 998;
-      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25);
-      color: #fff; border-radius: 8px; padding: 7px 10px;
-      font-size: 1.1rem; line-height: 1; cursor: pointer;
-      backdrop-filter: blur(4px);
-      transition: background 0.2s;
-    }
-    #fsBtn:hover { background: rgba(255,255,255,0.22); }
+    /* ── Registration slide ── */
+    .reg-title   { font-size: 3.5rem; font-weight: 900; color: var(--amber); margin-bottom: 12px; }
+    .reg-step    { font-size: 1.35rem; color: var(--muted); margin-bottom: 32px; max-width: 700px; line-height: 1.5; }
+    .reg-qr-wrap { background: #fff; border-radius: 20px; padding: 22px; display: inline-block; margin-bottom: 20px; }
+    .reg-url     { font-size: 1.4rem; font-weight: 800; letter-spacing: 2px; color: var(--text); }
 
-    /* Registration slide */
-    .reg-title    { font-size: 3.5rem; font-weight: 900; color: var(--amber); margin-bottom: 16px; }
-    .reg-step     { font-size: 1.4rem; color: var(--muted); margin-bottom: 36px; max-width: 700px; line-height: 1.5; }
-    .reg-qr-wrap  { background: #fff; border-radius: 20px; padding: 24px; display: inline-block; margin-bottom: 24px; }
-    .reg-url      { font-size: 1.5rem; font-weight: 800; letter-spacing: 2px; color: var(--text); }
-
-    /* Race view */
-    .race-header  { font-size: 0.8rem; font-weight: 900; letter-spacing: 5px; text-transform: uppercase; color: var(--muted); margin-bottom: 36px; }
-    .race-grid    { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 960px; width: 100%; }
-    .race-card    { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 28px 24px; text-align: center; }
-    .rc-lane-lbl  { font-size: 0.7rem; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
-    .rc-name      { font-size: 3rem; font-weight: 900; line-height: 1; margin-bottom: 8px; }
-    .rc-num       { font-size: 1rem; font-weight: 700; color: var(--amber); }
-
-    /* Timer slide */
+    /* ── Timer slide ── */
     .slide-timer {
       font-size: clamp(8rem, 22vw, 18rem);
-      font-weight: 900;
-      letter-spacing: -4px;
-      font-variant-numeric: tabular-nums;
-      line-height: 1;
-      color: var(--text);
-      transition: color 0.4s;
+      font-weight: 900; letter-spacing: -4px;
+      font-variant-numeric: tabular-nums; line-height: 1; color: var(--text);
     }
-    .slide-timer.done { color: var(--amber); }
-    .timer-colon {
-      color: var(--amber);
-      display: inline-block;
-      animation: colonBlink 1s step-end infinite;
-    }
-    @keyframes colonBlink { 50% { opacity: 0.25; } }
+    .slide-timer.done { color: var(--amber); animation: pulseDone 1.2s ease-in-out infinite; }
+    @keyframes pulseDone { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+    .timer-colon { color: var(--amber); display: inline-block; animation: colonBlink 1s step-end infinite; }
+    @keyframes colonBlink { 50% { opacity: 0.2; } }
+    .timer-label { font-size: 1.1rem; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; color: var(--muted); margin-top: 16px; }
 
-    /* Re-race banner */
+    /* ── Stopwatch slide ── */
+    .slide-stopwatch {
+      font-size: clamp(8rem, 22vw, 18rem);
+      font-weight: 900; letter-spacing: -4px;
+      font-variant-numeric: tabular-nums; line-height: 1; color: var(--green);
+    }
+    .stopwatch-colon { display: inline-block; animation: colonBlink 1s step-end infinite; }
+
+    /* ── Scoreboard slide ── */
+    .scoreboard-slide { width: 100%; max-width: 860px; max-height: calc(100vh - 120px); display: flex; flex-direction: column; }
+    .sb-header { font-size: 0.75rem; font-weight: 900; letter-spacing: 5px; text-transform: uppercase; color: var(--amber); margin-bottom: 28px; }
+    .sb-rows { display: flex; flex-direction: column; gap: 12px; flex: 1; overflow: hidden; }
+    .sb-row {
+      display: grid; grid-template-columns: 56px 1fr auto;
+      align-items: center; gap: 20px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 14px 22px;
+    }
+    .sb-row.rank-1 { border-color: var(--gold);   background: rgba(255,215,0,0.06); }
+    .sb-row.rank-2 { border-color: var(--silver); background: rgba(184,190,200,0.06); }
+    .sb-row.rank-3 { border-color: var(--bronze); background: rgba(205,127,50,0.06); }
+    .sb-rank { font-size: 1.6rem; font-weight: 900; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .sb-row.rank-1 .sb-rank { color: var(--gold); }
+    .sb-row.rank-2 .sb-rank { color: var(--silver); }
+    .sb-row.rank-3 .sb-rank { color: var(--bronze); }
+    .sb-name { font-size: 2rem; font-weight: 800; text-align: left; }
+    .sb-pts  { font-size: 1rem; font-weight: 700; color: var(--amber); white-space: nowrap; }
+    .sb-carno { font-size: 0.75rem; font-weight: 600; color: var(--muted); display: block; margin-top: 2px; }
+
+    /* ── Split slide ── */
+    .split-slide {
+      position: fixed; inset: 0;
+      display: grid; grid-template-columns: 1fr 1fr;
+    }
+    .split-panel { display: flex; flex-direction: column; padding: 48px 40px; overflow: hidden; }
+    .split-panel:first-child { border-right: 1px solid var(--border); }
+    .split-panel-label { font-size: 0.7rem; font-weight: 900; letter-spacing: 5px; text-transform: uppercase; color: var(--amber); margin-bottom: 28px; flex-shrink: 0; }
+    .split-panel-rows  { display: flex; flex-direction: column; gap: 10px; overflow: hidden; flex: 1; }
+    .sp-lane-row {
+      display: grid; grid-template-columns: 48px 1fr;
+      align-items: center; gap: 14px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 16px;
+    }
+    .sp-lane-num  { font-size: 1rem; font-weight: 900; color: var(--muted); text-align: center; }
+    .sp-lane-name { font-size: 1.4rem; font-weight: 800; }
+    .sp-lane-car  { font-size: 0.75rem; color: var(--amber); font-weight: 600; }
+    .sp-sb-row {
+      display: grid; grid-template-columns: 40px 1fr auto;
+      align-items: center; gap: 12px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 10px 14px;
+    }
+    .sp-sb-row.rank-1 { border-color: var(--gold); }
+    .sp-sb-row.rank-2 { border-color: var(--silver); }
+    .sp-sb-row.rank-3 { border-color: var(--bronze); }
+    .sp-rank { font-size: 1.05rem; font-weight: 900; color: var(--muted); text-align: center; }
+    .sp-sb-row.rank-1 .sp-rank { color: var(--gold); }
+    .sp-sb-row.rank-2 .sp-rank { color: var(--silver); }
+    .sp-sb-row.rank-3 .sp-rank { color: var(--bronze); }
+    .sp-name { font-size: 1.25rem; font-weight: 800; text-align: left; }
+    .sp-pts  { font-size: 0.8rem; font-weight: 700; color: var(--amber); }
+
+    /* ── Idle ── */
+    .idle-msg { font-size: 1.3rem; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; color: var(--muted); }
+    .idle-sub { font-size: 0.75rem; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; color: var(--border); margin-top: 14px; }
+
+    /* ── Fullscreen button ── */
+    #fsBtn {
+      position: fixed; bottom: 18px; right: 18px; z-index: 998;
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+      color: #fff; border-radius: 8px; padding: 7px 10px;
+      font-size: 1.1rem; line-height: 1; cursor: pointer;
+      backdrop-filter: blur(4px); transition: background 0.2s;
+    }
+    #fsBtn:hover { background: rgba(255,255,255,0.2); }
+
+    /* ── Re-race banner ── */
     #reraceBanner {
       display: none; position: fixed; inset: 0; z-index: 999;
       background: rgba(220, 38, 38, 0.95);
@@ -118,13 +176,14 @@
 
 <div id="slide">
   <div class="idle-msg">Waiting for announcer…</div>
+  <div class="idle-sub">pwd.k.vu/display/screen.html</div>
 </div>
 
 <button id="fsBtn" title="Toggle fullscreen" onclick="toggleFS()">⛶</button>
 
 <div id="reraceBanner">
   ⚠ RE-RACE
-  <div id="reraceBannerLabel" style="font-size:1.5rem; font-weight:800; letter-spacing:3px; margin-top:10px;"></div>
+  <div id="reraceBannerLabel" style="font-size:1.5rem;font-weight:800;letter-spacing:3px;margin-top:10px;"></div>
   <small style="margin-top:12px;">Please reset the track</small>
 </div>
 
@@ -134,109 +193,259 @@
 <script>
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // ── Fullscreen toggle ─────────────────────────────────────────
-  function toggleFS() {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
-    } else {
-      document.exitFullscreen();
-    }
-  }
-  document.addEventListener('fullscreenchange', () => {
-    document.getElementById('fsBtn').textContent =
-      document.fullscreenElement ? '✕' : '⛶';
-  });
-
+  // ── Utilities ─────────────────────────────────────────────────
   function esc(s) {
     return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+  function toggleFS() {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+    else document.exitFullscreen();
+  }
+  document.addEventListener('fullscreenchange', () => {
+    document.getElementById('fsBtn').textContent = document.fullscreenElement ? '✕' : '⛶';
+  });
 
-  // ── Countdown timer state ─────────────────────────────────────
-  let _timerInterval = null;
+  // ── Interval handles ──────────────────────────────────────────
+  let _timerInterval = null, _stopwatchInterval = null, _liveInterval = null;
+  function clearAllIntervals() {
+    clearInterval(_timerInterval); clearInterval(_stopwatchInterval); clearInterval(_liveInterval);
+    _timerInterval = _stopwatchInterval = _liveInterval = null;
+  }
 
+  // ── Slide renderer ─────────────────────────────────────────────
   function setSlide(html) {
-    clearInterval(_timerInterval);  // stop any running countdown
+    clearAllIntervals();
     const el = document.getElementById('slide');
-    el.style.animation = 'none';
-    el.offsetHeight; // reflow
-    el.style.animation = '';
+    el.style.animation = 'none'; el.offsetHeight; el.style.animation = '';
     el.innerHTML = html;
   }
 
-  // ── Countdown timer ───────────────────────────────────────────
-  function startCountdown(totalSeconds) {
-    function render(s) {
-      const m   = String(Math.floor(s / 60)).padStart(2, '0');
-      const sec = String(s % 60).padStart(2, '0');
-      const el  = document.getElementById('slide');
-      if (!el) return;
-      const isDone = s <= 0;
-      el.innerHTML = `<div class="slide-timer${isDone ? ' done' : ''}">${m}<span class="timer-colon">:</span>${sec}</div>`;
+  // ── Slide router ──────────────────────────────────────────────
+  function showSlide(data) {
+    switch (data.type) {
+
+      case 'idle':
+        setSlide(`<div class="idle-msg">Waiting for announcer…</div><div class="idle-sub">pwd.k.vu/display/screen.html</div>`);
+        break;
+
+      case 'text':
+        setSlide(`
+          <div class="slide-headline">${esc(data.message)}</div>
+          ${data.subtitle ? `<div class="slide-subtitle">${esc(data.subtitle)}</div>` : ''}`);
+        break;
+
+      case 'color-text': {
+        const bg    = esc(data.bg    || '#1a56db');
+        const color = esc(data.color || '#ffffff');
+        clearAllIntervals();
+        const el = document.getElementById('slide');
+        el.style.animation = 'none'; el.offsetHeight; el.style.animation = '';
+        el.innerHTML = `<div class="slide-color-bg" style="background:${bg};color:${color};">
+          <div class="slide-headline" style="color:${color};">${esc(data.message)}</div>
+          ${data.subtitle ? `<div class="slide-subtitle" style="color:${color};opacity:0.75;">${esc(data.subtitle)}</div>` : ''}
+        </div>`;
+        break;
+      }
+
+      case 'image':
+        setSlide(`<div class="slide-image"><img src="${esc(data.url)}" /></div>`);
+        break;
+
+      case 'register': {
+        const url = data.url || (location.origin + '/');
+        setSlide(`
+          <div class="reg-title">Register Your Car!</div>
+          <div class="reg-step">Scan the QR code or visit the link below,<br>then bring your car to the inspection table.</div>
+          <div class="reg-qr-wrap" id="regQR"></div>
+          <div class="reg-url">${esc(url)}</div>`);
+        new QRCode(document.getElementById('regQR'), {
+          text: url, width: 240, height: 240,
+          colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.H
+        });
+        break;
+      }
+
+      case 'race':
+        clearAllIntervals();
+        document.getElementById('slide').innerHTML =
+          `<iframe src="../display/index.html" style="position:fixed;inset:0;width:100vw;height:100vh;border:none;z-index:10;"></iframe>`;
+        break;
+
+      case 'timer':
+        clearAllIntervals();
+        startCountdown(data.seconds || 0, data.label || '');
+        break;
+
+      case 'stopwatch':
+        clearAllIntervals();
+        startStopwatch();
+        break;
+
+      case 'scoreboard':
+        setSlide(`<div class="idle-msg" style="letter-spacing:2px;">Loading standings…</div>`);
+        loadScoreboard();
+        _liveInterval = setInterval(loadScoreboard, 10000);
+        break;
+
+      case 'split':
+        clearAllIntervals();
+        renderSplitShell();
+        loadSplit();
+        _liveInterval = setInterval(loadSplit, 5000);
+        break;
+
+      case 'gslides': {
+        const url = esc(data.url || '');
+        clearAllIntervals();
+        document.getElementById('slide').innerHTML =
+          `<iframe src="${url}" style="position:fixed;inset:0;width:100vw;height:100vh;border:none;z-index:10;" allowfullscreen></iframe>`;
+        break;
+      }
     }
-    // Write HTML directly (bypassing setSlide to keep the timer element stable)
+  }
+
+  // ── Countdown timer ───────────────────────────────────────────
+  function startCountdown(total, label) {
+    function render(s) {
+      const m = String(Math.floor(s / 60)).padStart(2,'0');
+      const sec = String(s % 60).padStart(2,'0');
+      const isDone = s <= 0;
+      const el = document.getElementById('slide'); if (!el) return;
+      el.innerHTML = `
+        <div class="slide-timer${isDone ? ' done' : ''}">${m}<span class="timer-colon">:</span>${sec}</div>
+        ${label ? `<div class="timer-label">${esc(label)}</div>` : ''}`;
+    }
     const el = document.getElementById('slide');
     el.style.animation = 'none'; el.offsetHeight; el.style.animation = '';
-    render(totalSeconds);
-    let remaining = totalSeconds;
-    clearInterval(_timerInterval);
+    render(total);
+    let remaining = total;
     if (remaining > 0) {
       _timerInterval = setInterval(() => {
-        remaining--;
-        render(remaining);
+        remaining--; render(remaining);
         if (remaining <= 0) clearInterval(_timerInterval);
       }, 1000);
     }
   }
 
-  function showSlide(data) {
-    if (data.type === 'idle') {
-      setSlide(`<div class="idle-msg">Waiting for announcer…</div>`);
-
-    } else if (data.type === 'text') {
-      setSlide(`<div class="slide-text">${esc(data.message)}</div>`);
-
-    } else if (data.type === 'image') {
-      setSlide(`<div class="slide-image"><img src="${esc(data.url)}" /></div>`);
-
-    } else if (data.type === 'register') {
-      const url = data.url || (location.origin + '/');
-      setSlide(`
-        <div class="reg-title">Register Your Car!</div>
-        <div class="reg-step">Scan the QR code or visit the link below,<br>then bring your car to the inspection table.</div>
-        <div class="reg-qr-wrap" id="regQR"></div>
-        <div class="reg-url">${esc(url)}</div>`);
-      new QRCode(document.getElementById('regQR'), {
-        text: url, width: 240, height: 240,
-        colorDark: '#000', colorLight: '#fff',
-        correctLevel: QRCode.CorrectLevel.H
-      });
-
-    } else if (data.type === 'race') {
-      loadRaceView();
-
-    } else if (data.type === 'timer') {
-      clearInterval(_timerInterval);
-      startCountdown(data.seconds || 0);
+  // ── Stopwatch ─────────────────────────────────────────────────
+  function startStopwatch() {
+    let elapsed = 0;
+    function render(s) {
+      const m = String(Math.floor(s / 60)).padStart(2,'0');
+      const sec = String(s % 60).padStart(2,'0');
+      const el = document.getElementById('slide'); if (!el) return;
+      el.innerHTML = `<div class="slide-stopwatch">${m}<span class="stopwatch-colon">:</span>${sec}</div>`;
     }
+    const el = document.getElementById('slide');
+    el.style.animation = 'none'; el.offsetHeight; el.style.animation = '';
+    render(0);
+    _stopwatchInterval = setInterval(() => { elapsed++; render(elapsed); }, 1000);
   }
 
-  function loadRaceView() {
-    // Show the full live display in a full-screen iframe
-    setSlide(`<iframe src="../display/index.html" style="position:fixed; inset:0; width:100vw; height:100vh; border:none; z-index:10;"></iframe>`);
+  // ── Scoreboard (pulls live from DB) ───────────────────────────
+  async function loadScoreboard() {
+    try {
+      const { data: state } = await sb.from('race_state').select('current_round_id').eq('id',1).single();
+      const { data: cars }  = await sb.from('cars').select('id,car_number,kid_name').eq('legal_status','legal').eq('eliminated',false);
+      if (!cars?.length) { document.getElementById('slide').innerHTML = `<div class="idle-msg">No active standings yet</div>`; return; }
+
+      const pts = {};
+      cars.forEach(c => pts[c.id] = 0);
+      if (state?.current_round_id) {
+        const { data: res } = await sb.from('heat_results')
+          .select('first_place_car,second_place_car,third_place_car,fourth_place_car,heats!inner(round_id)')
+          .eq('heats.round_id', state.current_round_id);
+        (res||[]).forEach(r => {
+          [[r.first_place_car,1],[r.second_place_car,2],[r.third_place_car,3],[r.fourth_place_car,4]]
+            .forEach(([id,p]) => { if (id && pts[id]!==undefined) pts[id]+=p; });
+        });
+      }
+      const sorted = cars.map(c=>({...c,pts:pts[c.id]??0})).sort((a,b)=>a.pts-b.pts||a.car_number-b.car_number).slice(0,10);
+      const medals = ['🥇','🥈','🥉'];
+      const rows = sorted.map((c,i) => `
+        <div class="sb-row${i<3?` rank-${i+1}`:''}">
+          <div class="sb-rank">${medals[i]||i+1}</div>
+          <div class="sb-name">${esc(c.kid_name)}<span class="sb-carno">Car #${c.car_number}</span></div>
+          <div class="sb-pts">${state?.current_round_id?`${c.pts} pts`:'—'}</div>
+        </div>`).join('');
+      const el = document.getElementById('slide'); if (!el) return;
+      el.innerHTML = `<div class="scoreboard-slide"><div class="sb-header">Current Standings</div><div class="sb-rows">${rows}</div></div>`;
+    } catch(e) { console.error('Scoreboard',e); }
   }
 
-  // ── Listen for announcer slides ──────────────────────────────
+  // ── Split slide (live lanes + standings) ──────────────────────
+  function renderSplitShell() {
+    const el = document.getElementById('slide');
+    el.style.animation = 'none'; el.offsetHeight; el.style.animation = '';
+    el.innerHTML = `
+      <div class="split-slide">
+        <div class="split-panel">
+          <div class="split-panel-label">Now on Track</div>
+          <div class="split-panel-rows" id="splitLanes"><div style="color:var(--muted)">Loading…</div></div>
+        </div>
+        <div class="split-panel">
+          <div class="split-panel-label">Standings</div>
+          <div class="split-panel-rows" id="splitStandings"><div style="color:var(--muted)">Loading…</div></div>
+        </div>
+      </div>`;
+  }
+
+  async function loadSplit() {
+    try {
+      const { data: state } = await sb.from('race_state').select('current_heat_id,current_round_id').eq('id',1).single();
+
+      // Lanes
+      const lanesEl = document.getElementById('splitLanes');
+      if (lanesEl) {
+        if (state?.current_heat_id) {
+          const { data: entries } = await sb.from('heat_entries')
+            .select('lane_number,cars(car_number,kid_name)').eq('heat_id',state.current_heat_id).order('lane_number');
+          lanesEl.innerHTML = (entries||[]).map(e => `
+            <div class="sp-lane-row">
+              <div class="sp-lane-num">${e.lane_number}</div>
+              <div><div class="sp-lane-name">${esc(e.cars?.kid_name??'—')}</div><div class="sp-lane-car">Car #${e.cars?.car_number??'—'}</div></div>
+            </div>`).join('') || `<div style="color:var(--muted)">No active heat</div>`;
+        } else {
+          lanesEl.innerHTML = `<div style="color:var(--muted)">Waiting for next heat…</div>`;
+        }
+      }
+
+      // Standings
+      const standEl = document.getElementById('splitStandings');
+      if (!standEl) return;
+      const { data: cars } = await sb.from('cars').select('id,car_number,kid_name').eq('legal_status','legal').eq('eliminated',false);
+      if (!cars?.length) { standEl.innerHTML = `<div style="color:var(--muted)">No standings yet</div>`; return; }
+      const pts = {}; cars.forEach(c => pts[c.id]=0);
+      if (state?.current_round_id) {
+        const { data: res } = await sb.from('heat_results')
+          .select('first_place_car,second_place_car,third_place_car,fourth_place_car,heats!inner(round_id)')
+          .eq('heats.round_id',state.current_round_id);
+        (res||[]).forEach(r=>{
+          [[r.first_place_car,1],[r.second_place_car,2],[r.third_place_car,3],[r.fourth_place_car,4]]
+            .forEach(([id,p])=>{ if(id&&pts[id]!==undefined) pts[id]+=p; });
+        });
+      }
+      const sorted = cars.map(c=>({...c,pts:pts[c.id]??0})).sort((a,b)=>a.pts-b.pts||a.car_number-b.car_number).slice(0,8);
+      const medals = ['🥇','🥈','🥉'];
+      standEl.innerHTML = sorted.map((c,i)=>`
+        <div class="sp-sb-row${i<3?` rank-${i+1}`:''}">
+          <div class="sp-rank">${medals[i]||i+1}</div>
+          <div class="sp-name">${esc(c.kid_name)}</div>
+          <div class="sp-pts">${state?.current_round_id?`${c.pts}p`:'—'}</div>
+        </div>`).join('');
+    } catch(e) { console.error('Split',e); }
+  }
+
+  // ── Realtime listeners ────────────────────────────────────────
   sb.channel('announcer-control')
     .on('broadcast', { event: 'slide' }, ({ payload }) => showSlide(payload))
     .subscribe();
 
-  // ── Listen for re-race ───────────────────────────────────────
   sb.channel('rerace-control')
     .on('broadcast', { event: 'rerace' }, ({ payload }) => {
       const banner = document.getElementById('reraceBanner');
       const lbl    = document.getElementById('reraceBannerLabel');
-      lbl.textContent = (payload?.round != null)
-        ? `Round ${payload.round} — Heat ${payload.heat}` : '';
+      lbl.textContent = payload?.round != null ? `Round ${payload.round} — Heat ${payload.heat}` : '';
       banner.classList.add('show');
       setTimeout(() => banner.classList.remove('show'), 7000);
     })
