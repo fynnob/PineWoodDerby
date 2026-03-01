@@ -390,21 +390,20 @@
         .map(c => ({ ...c, points: pts[c.id] ?? 0, fin: fin[c.id] ?? [0,0,0,0] }))
         .sort((a, b) => a.points - b.points || a.car_number - b.car_number);
 
-      const finColors = ['#d97706','#6b7280','#b45309','#374151'];
-      const finLabels = ['1st','2nd','3rd','4th'];
+      const finColors = ['#d97706','#6b7280','#b45309','#2563eb'];
 
       html += `<div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:8px;">Standings</div>`;
       html += sorted.map((car, i) => {
         const finHtml = car.fin.map((n, fi) =>
-          `<span style="font-size:0.72rem; font-weight:700; color:${finColors[fi]}; white-space:nowrap;">${finLabels[fi]}×${n}</span>`
-        ).join('<span style="color:var(--border); margin:0 2px;">|</span>');
+          `<span style="font-size:0.82rem; font-weight:800; color:${finColors[fi]};">${n}</span>`
+        ).join('<span style="color:var(--muted); margin:0 4px;">|</span>');
         return `
         <div class="leaderboard-row ${i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':''}">
           <div class="rank">${i+1}</div>
           <div class="car-num">#${car.car_number}</div>
           <div class="name" style="flex:1; min-width:0;">
             <div>${car.kid_name}</div>
-            <div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:3px;">${finHtml}</div>
+            <div style="margin-top:3px;">${finHtml}</div>
           </div>
           <div class="pts">${car.points} pts</div>
         </div>`;
