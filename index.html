@@ -23,10 +23,11 @@
     <input type="text" id="kidName" placeholder="e.g. Alex Johnson" maxlength="80"
            autocomplete="off" autocapitalize="words" />
 
-    <label for="parentEmail">Parent Email <span style="color:var(--muted2); font-weight:400;">(optional — receive confirmation &amp; QR)</span></label>
-    <input type="email" id="parentEmail" placeholder="e.g. parent@example.com"
-           autocomplete="email" style="margin-bottom:4px;" />
-    <p style="font-size:0.78rem; color:var(--muted2); margin-top:0; margin-bottom:16px;">Only used to send your check-in QR code. Never shared.</p>
+    <div id="emailFieldWrap" style="display:none;">
+      <label for="parentEmail">Parent Email <span id="emailOptional" style="color:var(--muted2); font-weight:400;"></span></label>
+      <input type="email" id="parentEmail" placeholder="e.g. parent@example.com" autocomplete="email" />
+      <p style="font-size:0.78rem; color:var(--muted2); margin-top:0; margin-bottom:16px;">We'll email your check-in QR code. Only sent once for your device.</p>
+    </div>
 
     <label for="carImage">Car Photo <span style="color:var(--accent); font-weight:600;">(recommended)</span></label>
     <input type="file" id="carImage" accept="image/*" capture="environment" />
@@ -150,7 +151,6 @@
   // ── Register ──────────────────────────────────────────────────
   document.getElementById('registerBtn').addEventListener('click', async () => {
     const kidName     = document.getElementById('kidName').value.trim();
-    const parentEmail = document.getElementById('parentEmail').value.trim();
     const fileEl      = document.getElementById('carImage');
     const file        = fileEl.files[0];
     const deviceToken = getDeviceToken();
@@ -177,7 +177,7 @@
       // car_number is auto-assigned by DB trigger; device_token links all family cars
       const { data: car, error: carErr } = await sb
         .from('cars')
-        .insert({ kid_name: kidName, image_url: imageUrl, device_token: deviceToken, email: parentEmail || null })
+        .insert({ kid_name: kidName, image_url: imageUrl, device_token: deviceToken })
         .select()
         .single();
 
@@ -188,28 +188,32 @@
       renderDeviceQR();
 
       document.getElementById('kidName').value = '';
-      document.getElementById('parentEmail').value = '';
+      // Note: email field intentionally NOT cleared — same parent may register more kids
       fileEl.value = '';
       document.getElementById('imagePreviewWrap').style.display = 'none';
 
       toast(`Car #${car.car_number} registered! 🏁`);
 
-      // Send confirmation email if enabled (non-blocking — failure won’t undo registration)
-      if (parentEmail) {
+      // Send confirmation email only ONCE per device (track in localStorage)
+      const EMAIL_SENT_KEY = 'derby_email_sent';
+      const parentEmail = document.getElementById('parentEmail').value.trim();
+      const alreadySentEmail = localStorage.getItem(EMAIL_SENT_KEY);
+      if (parentEmail && !alreadySentEmail) {
         try {
           const { data: state } = await sb.from('race_state').select('email_enabled').eq('id', 1).single();
           if (state?.email_enabled) {
+            const shortCode = tokenToShortCode(deviceToken);
             const { error: fnErr } = await sb.functions.invoke('send-registration-email', {
               body: {
                 to:           parentEmail,
-                kid_name:     kidName,
-                car_number:   car.car_number,
                 device_token: deviceToken,
+                short_code:   shortCode,
                 reg_url:      location.href,
               }
             });
             if (fnErr) throw fnErr;
-            toast(`Confirmation email sent to ${parentEmail}!`);
+            localStorage.setItem(EMAIL_SENT_KEY, '1');
+            toast('Check-in QR sent to your email!');
           }
         } catch (emailErr) {
           console.warn('Email send failed:', emailErr);
@@ -535,11 +539,38 @@
     .on('postgres_changes', { event: '*', schema: 'public', table: 'heat_results' }, () => loadRaceStatus())
     .subscribe();
 
-  // ── Init ──────────────────────────────────────────────────────
+  // ── Init ─────────────────────────────────────────────
+  // Show/hide email field based on race_state.email_enabled
+  async function initEmailField() {
+    try {
+      const { data } = await sb.from('race_state').select('email_enabled').eq('id', 1).single();
+      const enabled = data?.email_enabled ?? false;
+      const wrap  = document.getElementById('emailFieldWrap');
+      const input = document.getElementById('parentEmail');
+      const hint  = document.getElementById('emailOptional');
+      if (enabled) {
+        wrap.style.display = '';
+        const alreadySent = localStorage.getItem('derby_email_sent');
+        if (alreadySent) {
+          // Email already sent for this device — field optional, pre-filled note
+          hint.textContent = '(already sent for this device)';
+          input.required = false;
+        } else {
+          hint.textContent = '(required)';
+          input.required = true;
+        }
+      } else {
+        wrap.style.display = 'none';
+        input.required = false;
+      }
+    } catch { /* emails just stay hidden if DB unreachable */ }
+  }
+
   getDeviceToken(); // ensure token exists early
   renderCarList();
   renderDeviceQR();
   loadRaceStatus();
+  initEmailField();
 </script>
 </body>
 </html>
