@@ -55,6 +55,12 @@
     </div>
   </div>
 
+  <!-- Race Status -->
+  <div class="card" id="raceStatusCard" style="display:none;">
+    <div class="card-title">Race Status</div>
+    <div id="raceDashboard"><span class="spinner"></span></div>
+  </div>
+
 </div>
 
 <!-- Edit car modal -->
@@ -387,6 +393,89 @@
     }
   }
 
+  // ── Parent race dashboard ──────────────────────────────────────────────
+  async function refreshDashboard() {
+    const myCars = getMyCars();
+    const card   = document.getElementById('raceStatusCard');
+    if (!myCars.length) { card.style.display = 'none'; return; }
+
+    const { data: state } = await sb.from('race_state')
+      .select('current_round_id, current_heat_id, heats(heat_number)')
+      .eq('id', 1).single();
+
+    if (!state?.current_round_id) { card.style.display = 'none'; return; }
+    card.style.display = 'block';
+
+    const myCarIds  = myCars.map(c => c.id);
+    const roundId   = state.current_round_id;
+    const curHeatNum = state.heats?.heat_number ?? 0;
+
+    const [{ data: results }, { data: allCars }, { data: myEntries }] = await Promise.all([
+      sb.from('heat_results')
+        .select('first_place_car, second_place_car, third_place_car, fourth_place_car, heats!inner(round_id)')
+        .eq('heats.round_id', roundId),
+      sb.from('cars').select('id, car_number, kid_name').eq('eliminated', false),
+      sb.from('heat_entries')
+        .select('car_id, heats!inner(heat_number, status)')
+        .eq('heats.round_id', roundId)
+        .in('car_id', myCarIds)
+    ]);
+
+    const pts = {};
+    (allCars || []).forEach(c => pts[c.id] = 0);
+    (results  || []).forEach(r => {
+      if (pts[r.first_place_car]  !== undefined) pts[r.first_place_car]  += 1;
+      if (pts[r.second_place_car] !== undefined) pts[r.second_place_car] += 2;
+      if (pts[r.third_place_car]  !== undefined) pts[r.third_place_car]  += 3;
+      if (pts[r.fourth_place_car] !== undefined) pts[r.fourth_place_car] += 4;
+    });
+    const sorted = (allCars || [])
+      .map(c => ({ ...c, points: pts[c.id] ?? 0 }))
+      .filter(c => c.points > 0)
+      .sort((a, b) => a.points - b.points || a.car_number - b.car_number);
+    const posMap = {};
+    sorted.forEach((c, i) => posMap[c.id] = i + 1);
+
+    const nextHeatMap = {};
+    const racingNow   = new Set();
+    (myEntries || []).forEach(e => {
+      const h = e.heats;
+      if (h.status === 'active')  racingNow.add(e.car_id);
+      if (h.status === 'pending') {
+        if (nextHeatMap[e.car_id] == null || h.heat_number < nextHeatMap[e.car_id])
+          nextHeatMap[e.car_id] = h.heat_number;
+      }
+    });
+
+    const ordinal = n => n + (['st','nd','rd'][n-1] || 'th');
+
+    document.getElementById('raceDashboard').innerHTML = myCars.map(car => {
+      let nextStr;
+      if (racingNow.has(car.id)) {
+        nextStr = '🏁 Racing now!';
+      } else {
+        const next = nextHeatMap[car.id];
+        if (next != null) {
+          const away = next - curHeatNum;
+          nextStr = away <= 1 ? '⏩ Up next!' : `Races in ${away} heat${away === 1 ? '' : 's'}`;
+        } else {
+          nextStr = 'Done for this round';
+        }
+      }
+      const pos    = posMap[car.id];
+      const posStr = pos ? ordinal(pos) + ' place' : '—';
+      return `
+        <div style="display:flex; align-items:center; justify-content:space-between;
+                    padding:12px 0; border-bottom:1px solid var(--border);">
+          <div>
+            <div style="font-weight:700;">#${car.car_number} ${car.kid_name}</div>
+            <div style="font-size:0.82rem; color:var(--muted2); margin-top:3px;">${nextStr}</div>
+          </div>
+          <div style="font-size:1.1rem; font-weight:900; color:var(--accent);">${posStr}</div>
+        </div>`;
+    }).join('');
+  }
+
   // ── Realtime: push legal_status changes to this device's badges ─
   sb.channel('parent-cars')
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'cars' }, payload => {
@@ -401,10 +490,17 @@
     })
     .subscribe();
 
-  // ── Init ──────────────────────────────────────────────────────
+  // Refresh dashboard when race advances or results come in
+  sb.channel('parent-race-state')
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'race_state' }, refreshDashboard)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'heat_results' }, refreshDashboard)
+    .subscribe();
+
+  // ── Init ───────────────────────────────────────────────
   getDeviceToken(); // ensure token exists early
   renderCarList();
   renderDeviceQR();
+  refreshDashboard();
 </script>
 </body>
 </html>

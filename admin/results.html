@@ -33,6 +33,7 @@
   <a href="track.html">Track</a>
   <a href="results.html" class="active">Officials</a>
   <a href="cars.html">Cars</a>
+  <a href="editor.html">Editor</a>
 </nav>
 
 <div class="container">
@@ -45,6 +46,7 @@
         <h2 id="heatLabel" style="color:var(--accent2);">Loading…</h2>
       </div>
       <button class="btn btn-primary btn-lg" id="nextHeatBtn" onclick="advanceHeat()">▶ Next Heat</button>
+      <button class="btn btn-ghost btn-lg" onclick="broadcastRerace()" style="border-color:var(--danger);color:var(--danger);">🔄 Re-race</button>
     </div>
 
     <!-- Mode toggle -->
@@ -85,7 +87,19 @@
     <div class="card-title">Round Progress</div>
     <div id="roundBody"><span class="spinner"></span></div>
   </div>
-
+  <!-- ── Announcer ────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">Announcer</div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+      <button class="btn btn-ghost btn-sm" onclick="sendPreset('register')">&#128241; Registration Reminder</button>
+      <button class="btn btn-ghost btn-sm" onclick="broadcastRerace()">&#128260; Re-race</button>
+      <button class="btn btn-ghost btn-sm" style="border-color:var(--muted);" onclick="clearAnnounce()">&#10005; Clear Display</button>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <input type="text" id="announceInput" placeholder="Custom message for display…" style="flex:1;" />
+      <button class="btn btn-primary btn-sm" onclick="sendCustomAnnounce()">Send</button>
+    </div>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -672,8 +686,43 @@
       });
     }
   }
+  // ── Announcer / Re-race ───────────────────────────────────────────────────
+  const announceCh = sb.channel('announcer-control').subscribe();
+
+  function broadcastRerace() {
+    announceCh.send({ type: 'broadcast', event: 'announce',
+      payload: { type: 're-race', message: '🔄 RE-RACE', sub: 'Please reset the track', duration: 0 }
+    });
+    toast('Re-race signal sent to display!');
+  }
+
+  function sendPreset(preset) {
+    if (preset === 'register') {
+      announceCh.send({ type: 'broadcast', event: 'announce',
+        payload: { type: 'message',
+                   message: 'Register Your Car!',
+                   sub: 'Visit: fynnob.github.io/PineWoodDerby',
+                   duration: 0 }
+      });
+      toast('Registration reminder sent to display!');
+    }
+  }
+
+  function sendCustomAnnounce() {
+    const msg = document.getElementById('announceInput').value.trim();
+    if (!msg) return;
+    announceCh.send({ type: 'broadcast', event: 'announce',
+      payload: { type: 'message', message: msg, duration: 0 }
+    });
+    document.getElementById('announceInput').value = '';
+    toast('Announcement sent!');
+  }
+
+  function clearAnnounce() {
+    announceCh.send({ type: 'broadcast', event: 'announce', payload: { type: 'clear' } });
+    toast('Display cleared.');
+  }
 
   loadPage();
-</script>
 </body>
 </html>

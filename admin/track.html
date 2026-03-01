@@ -33,6 +33,7 @@
   <a href="track.html" class="active">Track</a>
   <a href="results.html">Officials</a>
   <a href="cars.html">Cars</a>
+  <a href="editor.html">Editor</a>
 </nav>
 
 <div class="container">
@@ -52,7 +53,17 @@
     <div class="lane-card"><div class="lane-label">Lane 4</div><div class="car-number">—</div></div>
   </div>
 
+  <!-- Re-race button -->
+  <div style="margin-top:20px;">
+    <button class="btn btn-lg btn-full" onclick="broadcastRerace()"
+            style="border-color:var(--danger); color:var(--danger); background:transparent;">
+      🔄 Re-race This Heat
+    </button>
+  </div>
+
 </div>
+
+<div id="toast"></div>
 
 <script src="../config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -205,6 +216,22 @@
 
   // Fallback poll every 15 s in case Realtime misses an event
   setInterval(refreshState, 15000);
+
+  // ── Re-race broadcast ──────────────────────────────────────────────────
+  const announceCh = sb.channel('announcer-control').subscribe();
+
+  function broadcastRerace() {
+    announceCh.send({ type: 'broadcast', event: 'announce',
+      payload: { type: 're-race', message: '🔄 RE-RACE', sub: 'Please reset the track', duration: 0 }
+    });
+    toast('Re-race signal sent to display!');
+  }
+
+  function toast(msg, ok = true) {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.className = ok ? 'show ok' : 'show err';
+    setTimeout(() => el.className = '', 3000);
+  }
 
   init();
 </script>

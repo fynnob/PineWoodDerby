@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Results Editor — Pinewood Derby</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+
+<!-- PIN gate (separate PIN: 1357) -->
+<div id="pinGate" style="position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;">
+  <div style="text-align:center;max-width:300px;padding:20px;">
+    <h2 style="margin-bottom:8px;">Editor Access</h2>
+    <p style="margin-bottom:16px;">Enter the editor PIN</p>
+    <input type="tel" id="pinInput" maxlength="4" placeholder="••••" autocomplete="off"
+           style="text-align:center;font-size:2rem;letter-spacing:12px;width:160px;margin:0 auto 16px;display:block;" />
+    <p id="pinErr" style="color:var(--danger);font-size:0.82rem;min-height:1.4em;"></p>
+  </div>
+</div>
+<script>
+(function(){
+  const PIN='1357', KEY='derby_editor_pin';
+  if(localStorage.getItem(KEY)===PIN){ document.getElementById('pinGate').style.display='none'; }
+  else {
+    document.getElementById('pinInput').addEventListener('input', function(){
+      if (this.value.length === 4) {
+        if (this.value === PIN) {
+          localStorage.setItem(KEY, PIN);
+          document.getElementById('pinGate').style.display='none';
+        } else {
+          document.getElementById('pinErr').textContent = 'Wrong PIN';
+          this.value = '';
+        }
+      }
+    });
+    document.getElementById('pinInput').focus();
+  }
+})();
+</script>
+
+<nav class="top-nav">
+  <span class="brand">Derby</span>
+  <a href="index.html">Hub</a>
+  <a href="inspection.html">Inspection</a>
+  <a href="track.html">Track</a>
+  <a href="results.html">Officials</a>
+  <a href="cars.html">Cars</a>
+  <a href="editor.html" class="active">Editor</a>
+</nav>
+
+<div class="container">
+
+  <div class="card">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+      <div class="card-title" style="margin:0;">Results Editor</div>
+      <button class="btn btn-ghost btn-sm" onclick="loadEditor()">↻ Refresh</button>
+    </div>
+    <p style="font-size:0.82rem; color:var(--muted); margin-bottom:16px;">
+      Edit or enter results for any heat in any round.
+    </p>
+    <div id="editorBody"><span class="spinner"></span></div>
+  </div>
+
+</div>
+
+<!-- Edit modal -->
+<div class="confirm-overlay" id="editOverlay">
+  <div class="confirm-box" style="max-width:420px; width:100%;">
+    <h3 id="editModalTitle" style="margin-bottom:4px;"></h3>
+    <p style="font-size:0.82rem; color:var(--muted); margin-bottom:14px;">Tap cars in finish order (1st → last).</p>
+    <div id="editQuickTap" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;"></div>
+    <button class="btn btn-ghost btn-sm" style="margin-bottom:14px;" onclick="resetEditTap()">Reset</button>
+    <div class="confirm-btns">
+      <button class="btn btn-ghost btn-full" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-primary btn-full" id="editSaveBtn" onclick="saveEditResult()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="../config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let _editHeatId  = null;
+  let _editEntries = [];   // [{car_id, car_number, kid_name}]
+  let _editTapOrder = [];
+
+  function toast(msg, ok = true) {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.className = ok ? 'show ok' : 'show err';
+    setTimeout(() => el.className = '', 3000);
+  }
+
+  // ── Load all rounds + heats + results ─────────────────────────
+  async function loadEditor() {
+    document.getElementById('editorBody').innerHTML = '<span class="spinner"></span>';
+
+    const { data: rounds } = await sb.from('rounds')
+      .select('id, round_number, status')
+      .order('round_number');
+
+    if (!rounds?.length) {
+      document.getElementById('editorBody').innerHTML =
+        '<div class="empty-state">No rounds yet — start racing first.</div>';
+      return;
+    }
+
+    // Fetch all heats + results + entries for all rounds in parallel
+    const roundIds = rounds.map(r => r.id);
+
+    const [{ data: allHeats }, { data: allResults }, { data: allEntries }] = await Promise.all([
+      sb.from('heats')
+        .select('id, heat_number, status, round_id')
+        .in('round_id', roundIds)
+        .order('heat_number'),
+      sb.from('heat_results')
+        .select('heat_id, first_place_car, second_place_car, third_place_car, fourth_place_car'),
+      sb.from('heat_entries')
+        .select('heat_id, car_id, lane_number, cars(car_number, kid_name)')
+        .order('lane_number')
+    ]);
+
+    // Index by heat_id
+    const resultByHeat = {};
+    (allResults || []).forEach(r => resultByHeat[r.heat_id] = r);
+
+    const entriesByHeat = {};
+    (allEntries || []).forEach(e => {
+      if (!entriesByHeat[e.heat_id]) entriesByHeat[e.heat_id] = [];
+      entriesByHeat[e.heat_id].push(e);
+    });
+
+    // Build HTML round by round
+    let html = '';
+    for (const round of rounds) {
+      const heats = (allHeats || []).filter(h => h.round_id === round.id);
+      if (!heats.length) continue;
+
+      html += `
+        <div style="margin-bottom:24px;">
+          <div style="font-size:0.72rem; font-weight:800; text-transform:uppercase;
+                      letter-spacing:2px; color:var(--accent2); margin-bottom:10px;
+                      padding-bottom:6px; border-bottom:1px solid var(--border);">
+            Round ${round.round_number}
+            <span style="font-weight:500; color:var(--muted); text-transform:none; letter-spacing:0;">
+              — ${round.status}
+            </span>
+          </div>`;
+
+      for (const heat of heats) {
+        const result  = resultByHeat[heat.id];
+        const entries = entriesByHeat[heat.id] || [];
+        const carMap  = {};
+        entries.forEach(e => carMap[e.car_id] = e.cars);
+
+        let resultHtml = '';
+        if (result) {
+          const order = [result.first_place_car, result.second_place_car,
+                         result.third_place_car, result.fourth_place_car];
+          const medals = ['🥇','🥈','🥉','4️⃣'];
+          resultHtml = order.map((id, i) => {
+            const car = carMap[id];
+            return `<span style="font-size:0.8rem;">${medals[i]} #${car?.car_number ?? '?'} ${car?.kid_name ?? ''}</span>`;
+          }).join('<span style="color:var(--muted); margin:0 3px;">·</span>');
+        } else {
+          resultHtml = `<span style="font-size:0.8rem; color:var(--muted);">No results yet</span>`;
+        }
+
+        const hasEntries = entries.length > 0;
+
+        html += `
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+                      padding:9px 0; border-bottom:1px solid var(--border);">
+            <div style="font-size:0.82rem; font-weight:800; min-width:40px; color:var(--muted);">
+              H${heat.heat_number}
+            </div>
+            <div style="flex:1; min-width:0; line-height:1.6;">${resultHtml}</div>
+            ${hasEntries ? `
+              <button class="btn btn-ghost btn-sm"
+                      onclick="openEditModal('${heat.id}', ${round.round_number}, ${heat.heat_number})">
+                ${result ? 'Edit' : 'Enter'}
+              </button>` : ''}
+          </div>`;
+      }
+
+      html += '</div>';
+    }
+
+    document.getElementById('editorBody').innerHTML =
+      html || '<div class="empty-state">No heats found.</div>';
+  }
+
+  // ── Edit modal ─────────────────────────────────────────────────
+  async function openEditModal(heatId, roundNum, heatNum) {
+    _editHeatId   = heatId;
+    _editTapOrder = [];
+
+    document.getElementById('editModalTitle').textContent =
+      `Round ${roundNum} — Heat ${heatNum}`;
+    document.getElementById('editQuickTap').innerHTML =
+      '<span class="spinner"></span>';
+    document.getElementById('editOverlay').classList.add('open');
+
+    // Fetch entries fresh every time (always up to date)
+    const { data: entries } = await sb.from('heat_entries')
+      .select('car_id, cars(car_number, kid_name)')
+      .eq('heat_id', heatId)
+      .order('lane_number');
+
+    _editEntries = (entries || []).map(e => ({
+      car_id:     e.car_id,
+      car_number: e.cars?.car_number,
+      kid_name:   e.cars?.kid_name
+    }));
+
+    renderEditTap();
+  }
+
+  function renderEditTap() {
+    _editTapOrder = [];
+    document.getElementById('editQuickTap').innerHTML = _editEntries.map(e => `
+      <button class="btn btn-ghost btn-lg" id="etap_${e.car_id}"
+              onclick="tapEditCar('${e.car_id}')"
+              style="flex:1; min-width:64px; flex-direction:column; min-height:68px;
+                     font-size:1.4rem; font-weight:900; color:var(--accent); gap:2px;">
+        ${e.car_number}
+        <span style="font-size:0.7rem; font-weight:600; color:var(--muted); line-height:1;">
+          ${e.kid_name}
+        </span>
+      </button>
+    `).join('');
+  }
+
+  function tapEditCar(carId) {
+    if (_editTapOrder.includes(carId)) return;
+    _editTapOrder.push(carId);
+    const pos    = _editTapOrder.length;
+    const colors = ['#d97706','#6b7280','#b45309','#2563eb'];
+    const btn    = document.getElementById('etap_' + carId);
+    btn.style.borderColor = colors[pos - 1] || 'var(--accent2)';
+    btn.style.color       = colors[pos - 1] || 'var(--text)';
+    if (_editTapOrder.length === _editEntries.length) toast('All placed — hit Save!');
+  }
+
+  function resetEditTap() { renderEditTap(); }
+
+  function closeEditModal() {
+    _editHeatId = null;
+    document.getElementById('editOverlay').classList.remove('open');
+  }
+
+  async function saveEditResult() {
+    if (_editTapOrder.length !== _editEntries.length) {
+      toast('Place all ' + _editEntries.length + ' cars first.', false); return;
+    }
+
+    const btn = document.getElementById('editSaveBtn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+
+    try {
+      const { error } = await sb.from('heat_results').upsert({
+        heat_id:          _editHeatId,
+        first_place_car:  _editTapOrder[0],
+        second_place_car: _editTapOrder[1],
+        third_place_car:  _editTapOrder[2],
+        fourth_place_car: _editTapOrder[3]
+      }, { onConflict: 'heat_id' });
+
+      if (error) throw error;
+      toast('Results saved!');
+      closeEditModal();
+      loadEditor();
+    } catch (err) {
+      toast('Save failed: ' + err.message, false);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Save';
+    }
+  }
+
+  loadEditor();
+</script>
+</body>
+</html>
