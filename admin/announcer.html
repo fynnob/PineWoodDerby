@@ -167,7 +167,12 @@
       const { error: upErr } = await sb.storage
         .from('announcements')
         .upload(fileName, file, { contentType: file.type, upsert: false });
-      if (upErr) throw upErr;
+      if (upErr) {
+        const hint = upErr.message.includes('row-level security')
+          ? ' — add an anon INSERT policy to the announcements bucket in Supabase Storage.'
+          : '';
+        throw new Error(upErr.message + hint);
+      }
 
       const url = sb.storage.from('announcements').getPublicUrl(fileName).data.publicUrl;
       await pushSlide({ type: 'image', url });
@@ -188,13 +193,21 @@
     const grid = document.getElementById('imageGrid');
     grid.innerHTML = '<span class="spinner"></span>';
     const { data: files, error } = await sb.storage.from('announcements').list('', {
-      limit: 50, sortBy: { column: 'created_at', order: 'desc' }
+      limit: 100, sortBy: { column: 'created_at', order: 'desc' }
     });
-    if (error || !files?.length) {
+    if (error) {
+      grid.innerHTML = `<div style="color:var(--danger); font-size:0.82rem;">
+        Could not load images: ${error.message}<br>
+        <span style="color:var(--muted2);">Make sure the <strong>announcements</strong> bucket has an anon SELECT policy in Supabase Storage.</span>
+      </div>`;
+      return;
+    }
+    const visible = (files || []).filter(f => f.name !== '.emptyFolderPlaceholder');
+    if (!visible.length) {
       grid.innerHTML = '<div style="color:var(--muted); font-size:0.85rem;">No images yet.</div>';
       return;
     }
-    grid.innerHTML = files.filter(f => f.name !== '.emptyFolderPlaceholder').map(f => {
+    grid.innerHTML = visible.map(f => {
       const url = sb.storage.from('announcements').getPublicUrl(f.name).data.publicUrl;
       return `<div style="cursor:pointer; border-radius:8px; overflow:hidden; border:2px solid var(--border); aspect-ratio:1;"
                    onclick="pushSlide({type:'image',url:'${url.replace(/'/g,"\\'")}'})">
