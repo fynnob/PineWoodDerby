@@ -1,0 +1,8 @@
+# SQLite runtime files (created by local server, not for version control)
+derby.db
+derby.db-shm
+derby.db-wal
+
+# Local upload storage (files uploaded during events)
+local_uploads/*
+!local_uploads/.gitkeep

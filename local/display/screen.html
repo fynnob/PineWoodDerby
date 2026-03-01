@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Derby Screen</title>
+  <link rel="stylesheet" href="/local/fonts/inter.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:     #0b0d14;
+      --card:   #1a1e2e;
+      --border: #252a3d;
+      --amber:  #f59e0b;
+      --text:   #e8eaf2;
+      --muted:  #6b738f;
+      --gold:   #ffd700;
+      --silver: #b8bec8;
+      --bronze: #cd7f32;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      width: 100vw; height: 100vh;
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ── Slides ── */
+    #slide {
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 60px; text-align: center;
+      animation: fadeIn 0.4s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .idle-msg {
+      font-size: 1.2rem; font-weight: 700; letter-spacing: 3px;
+      text-transform: uppercase; color: var(--muted);
+    }
+
+    /* Text slide */
+    .slide-text { font-size: 5rem; font-weight: 900; line-height: 1.15; max-width: 1300px; }
+
+    /* Image slide — fills entire viewport */
+    .slide-image {
+      position: fixed; inset: 0; width: 100vw; height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .slide-image img {
+      width: 100vw; height: 100vh;
+      object-fit: cover;
+      object-position: center;
+    }
+
+    /* Fullscreen button */
+    #fsBtn {
+      position: fixed; bottom: 18px; right: 18px; z-index: 998;
+      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25);
+      color: #fff; border-radius: 8px; padding: 7px 10px;
+      font-size: 1.1rem; line-height: 1; cursor: pointer;
+      backdrop-filter: blur(4px);
+      transition: background 0.2s;
+    }
+    #fsBtn:hover { background: rgba(255,255,255,0.22); }
+
+    /* Registration slide */
+    .reg-title    { font-size: 3.5rem; font-weight: 900; color: var(--amber); margin-bottom: 16px; }
+    .reg-step     { font-size: 1.4rem; color: var(--muted); margin-bottom: 36px; max-width: 700px; line-height: 1.5; }
+    .reg-qr-wrap  { background: #fff; border-radius: 20px; padding: 24px; display: inline-block; margin-bottom: 24px; }
+    .reg-url      { font-size: 1.5rem; font-weight: 800; letter-spacing: 2px; color: var(--text); }
+
+    /* Race view */
+    .race-header  { font-size: 0.8rem; font-weight: 900; letter-spacing: 5px; text-transform: uppercase; color: var(--muted); margin-bottom: 36px; }
+    .race-grid    { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 960px; width: 100%; }
+    .race-card    { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 28px 24px; text-align: center; }
+    .rc-lane-lbl  { font-size: 0.7rem; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+    .rc-name      { font-size: 3rem; font-weight: 900; line-height: 1; margin-bottom: 8px; }
+    .rc-num       { font-size: 1rem; font-weight: 700; color: var(--amber); }
+
+    /* Re-race banner */
+    #reraceBanner {
+      display: none; position: fixed; inset: 0; z-index: 999;
+      background: rgba(220, 38, 38, 0.95);
+      flex-direction: column; align-items: center; justify-content: center;
+      font-size: 5rem; font-weight: 900; letter-spacing: 6px; text-transform: uppercase;
+      line-height: 1.2; color: #fff;
+    }
+    #reraceBanner.show { display: flex; }
+    #reraceBanner small { font-size: 1.5rem; letter-spacing: 4px; }
+  </style>
+</head>
+<body>
+
+<div id="slide">
+  <div class="idle-msg">Waiting for announcer…</div>
+</div>
+
+<button id="fsBtn" title="Toggle fullscreen" onclick="toggleFS()">⛶</button>
+
+<div id="reraceBanner">
+  ⚠ RE-RACE
+  <div id="reraceBannerLabel" style="font-size:1.5rem; font-weight:800; letter-spacing:3px; margin-top:10px;"></div>
+  <small style="margin-top:12px;">Please reset the track</small>
+</div>
+
+<script src="/local/config.local.js"></script>
+<script src="/local/supabase-shim.js"></script>
+<script src="/local/vendor/qrcode.min.js"></script>
+<script>
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ── Fullscreen toggle ─────────────────────────────────────────
+  function toggleFS() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen();
+    }
+  }
+  document.addEventListener('fullscreenchange', () => {
+    document.getElementById('fsBtn').textContent =
+      document.fullscreenElement ? '✕' : '⛶';
+  });
+
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function setSlide(html) {
+    const el = document.getElementById('slide');
+    el.style.animation = 'none';
+    el.offsetHeight; // reflow
+    el.style.animation = '';
+    el.innerHTML = html;
+  }
+
+  function showSlide(data) {
+    if (data.type === 'idle') {
+      setSlide(`<div class="idle-msg">Waiting for announcer…</div>`);
+
+    } else if (data.type === 'text') {
+      setSlide(`<div class="slide-text">${esc(data.message)}</div>`);
+
+    } else if (data.type === 'image') {
+      setSlide(`<div class="slide-image"><img src="${esc(data.url)}" /></div>`);
+
+    } else if (data.type === 'register') {
+      const url = data.url || (location.origin + '/');
+      setSlide(`
+        <div class="reg-title">Register Your Car!</div>
+        <div class="reg-step">Scan the QR code or visit the link below,<br>then bring your car to the inspection table.</div>
+        <div class="reg-qr-wrap" id="regQR"></div>
+        <div class="reg-url">${esc(url)}</div>`);
+      new QRCode(document.getElementById('regQR'), {
+        text: url, width: 240, height: 240,
+        colorDark: '#000', colorLight: '#fff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+
+    } else if (data.type === 'race') {
+      loadRaceView();
+    }
+  }
+
+  function loadRaceView() {
+    // Show the full live display in a full-screen iframe
+    setSlide(`<iframe src="../display/index.html" style="position:fixed; inset:0; width:100vw; height:100vh; border:none; z-index:10;"></iframe>`);
+  }
+
+  // ── Listen for announcer slides ──────────────────────────────
+  sb.channel('announcer-control')
+    .on('broadcast', { event: 'slide' }, ({ payload }) => showSlide(payload))
+    .subscribe();
+
+  // ── Listen for re-race ───────────────────────────────────────
+  sb.channel('rerace-control')
+    .on('broadcast', { event: 'rerace' }, ({ payload }) => {
+      const banner = document.getElementById('reraceBanner');
+      const lbl    = document.getElementById('reraceBannerLabel');
+      lbl.textContent = (payload?.round != null)
+        ? `Round ${payload.round} — Heat ${payload.heat}` : '';
+      banner.classList.add('show');
+      setTimeout(() => banner.classList.remove('show'), 7000);
+    })
+    .subscribe();
+</script>
+</body>
+</html>
