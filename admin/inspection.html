@@ -292,7 +292,7 @@
           <button class="insp-toggle-btn illegal ${car.legal_status === 'not_legal' ? 'active' : ''}"
                   id="illegal_${car.id}"
                   onclick="setStatus('${car.id}', 'not_legal')">✗</button>
-          <button class="btn btn-ghost btn-sm" style="color:var(--danger); border-color:var(--danger); min-height:40px; padding:0 10px; font-size:0.75rem;"
+          <button class="btn btn-ghost-danger btn-sm" style="min-height:40px; padding:0 10px; font-size:0.75rem;"
                   onclick="askDelete('${car.id}', '#${car.car_number} ${car.kid_name}')">Del</button>
         </div>
       </div>

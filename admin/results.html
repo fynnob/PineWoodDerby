@@ -46,7 +46,7 @@
         <h2 id="heatLabel" style="color:var(--accent2);">Loading…</h2>
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        <button class="btn btn-ghost btn-lg" style="border-color:var(--danger);color:var(--danger);" onclick="reraceHeat()">⚠ Re-race</button>
+        <button class="btn btn-ghost-danger btn-lg" onclick="reraceHeat()">⚠ Re-race</button>
         <button class="btn btn-primary btn-lg" id="nextHeatBtn" onclick="advanceHeat()">▶ Next Heat</button>
       </div>
     </div>
@@ -76,7 +76,7 @@
 
     <div id="existingCard" style="display:none; margin-top:12px;">
       <div id="existingBody"></div>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px; border-color:var(--danger); color:var(--danger);" onclick="clearResults()">⚠ Re-enter Results</button>
+      <button class="btn btn-ghost-danger btn-sm" style="margin-top:10px;" onclick="clearResults()">⚠ Re-enter Results</button>
     </div>
 
     <div id="noHeatMsg" style="display:none;">
@@ -118,7 +118,7 @@
     <p style="font-size:0.9rem; color:var(--muted2); margin-bottom:20px;">All entered results will be cleared and the heat will be reset for re-running.</p>
     <div class="confirm-btns">
       <button class="btn btn-ghost btn-full" onclick="document.getElementById('reraceOverlay').classList.remove('open')">Cancel</button>
-      <button class="btn btn-full" style="background:var(--danger);color:#fff;" onclick="confirmRerace()">⚠ Confirm</button>
+      <button class="btn btn-danger btn-full" onclick="confirmRerace()">⚠ Confirm</button>
     </div>
   </div>
 </div>

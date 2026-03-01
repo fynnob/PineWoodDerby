@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
 /* ============================================================
    Pinewood Derby — Light Theme, Mobile-First Styles
    ============================================================ */
@@ -24,7 +26,7 @@
   --radius-sm:  8px;
   --shadow:     0 1px 3px rgba(0,0,0,.08), 0 1px 6px rgba(0,0,0,.05);
   --shadow-md:  0 4px 16px rgba(0,0,0,.1);
-  --font:       'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font:       'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --tap:        52px;
 }
 
@@ -109,7 +111,8 @@ a  { color: var(--accent2); }
 .btn-gold    { background: var(--accent);     color: #fff; }
 .btn-danger  { background: var(--danger);     color: #fff; }
 .btn-success { background: var(--success);    color: #fff; }
-.btn-ghost   { background: transparent; border: 1.5px solid var(--border2); color: var(--text2); }
+.btn-ghost        { background: transparent; border: 1.5px solid var(--border2); color: var(--text2); }
+.btn-ghost-danger { background: transparent; border: 1.5px solid var(--danger);  color: var(--danger); }
 
 .btn-lg   { font-size: 1.05rem; min-height: 58px; }
 .btn-sm   { min-height: 38px; padding: 0 14px; font-size: 0.85rem; }
@@ -443,65 +446,4 @@ input:focus, select:focus, textarea:focus {
   .station-grid { grid-template-columns: repeat(4, 1fr); }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   DISPLAY PAGE — stays dark (TV screen)
-   ═══════════════════════════════════════════════════════════════ */
-body.display-page {
-  --bg: #0d0f14; --surface: #181b24; --border: #2a2f3d;
-  --surface2: #11141a; --text: #f0f0f0; --text2: #d0d0e0;
-  --muted: #8a92a6; --muted2: #6b7280; --accent: #f5c518;
-  background: var(--bg); color: var(--text); overflow: hidden;
-}
-
-.display-root    { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
-
-.display-header  {
-  background: var(--surface); border-bottom: 2px solid var(--accent);
-  padding: 14px 28px; display: flex; align-items: center; justify-content: space-between;
-}
-
-.display-header .event-title { font-size: 1.6rem; font-weight: 900; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; }
-.display-header .heat-info   { font-size: 0.95rem; font-weight: 700; color: var(--muted); text-align: right; }
-
-.display-body {
-  display: grid; grid-template-columns: 55% 45%; overflow: hidden;
-}
-
-.display-body .panel { padding: 24px; overflow: hidden; }
-.display-title { font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 3px; color: var(--muted); margin-bottom: 18px; }
-
-.d-lane-rows { display: flex; flex-direction: column; gap: 12px; }
-
-.d-lane-row {
-  display: flex; align-items: center; gap: 16px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 16px 20px;
-}
-.d-lane-row .dl-label { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--muted); min-width: 56px; }
-.d-lane-row .dl-num   { font-size: 3rem; font-weight: 900; color: var(--accent); line-height: 1; min-width: 80px; text-align: center; }
-.d-lane-row .dl-name  { font-size: 1.6rem; font-weight: 700; flex: 1; }
-
-.d-board-rows { display: flex; flex-direction: column; gap: 10px; }
-
-.d-board-row {
-  display: flex; align-items: center; gap: 14px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; padding: 14px 18px;
-}
-.d-board-row.pos-1 { border-color: #ffd700; background: #1a1600; }
-.d-board-row.pos-2 { border-color: #b0b0b0; background: #141414; }
-.d-board-row.pos-3 { border-color: #cd7f32; background: #160e06; }
-.d-board-row .bd-pos    { font-size: 1.6rem; font-weight: 900; min-width: 42px; color: var(--muted); }
-.d-board-row.pos-1 .bd-pos { color: #ffd700; }
-.d-board-row.pos-2 .bd-pos { color: #b0b0b0; }
-.d-board-row.pos-3 .bd-pos { color: #cd7f32; }
-.d-board-row .bd-carnum { font-size: 1.6rem; font-weight: 900; color: var(--accent); min-width: 56px; }
-.d-board-row .bd-name   { flex: 1; font-size: 1.2rem; font-weight: 700; }
-.d-board-row .bd-pts    { font-size: 1rem; font-weight: 800; color: var(--muted); }
-
-.refresh-dot {
-  width: 8px; height: 8px; background: #2ecc71;
-  border-radius: 50%; display: inline-block;
-  animation: dpulse 2s ease-in-out infinite;
-}
-@keyframes dpulse { 0%,100%{opacity:1} 50%{opacity:.2} }
+/* display/* pages have their own self-contained <style> blocks and do not use styles.css */

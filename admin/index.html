@@ -47,44 +47,36 @@
   <!-- Status strip -->
   <div class="card" id="statusCard">
     <div class="card-title">Event Status</div>
-    <div id="statusBody" style="display:flex; gap:24px; flex-wrap:wrap; align-items:center;">
+    <div class="status-bar" id="statusBody">
       <span class="spinner"></span>
     </div>
   </div>
 
   <!-- Station cards -->
-  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px;">
+  <div class="station-grid">
 
-    <a href="inspection.html" style="text-decoration:none;">
-      <div class="card" style="cursor:pointer; text-align:center;">
-        <div style="font-size:3rem; margin-bottom:8px;">🔍</div>
-        <h3>Inspection</h3>
-        <p style="font-size:0.85rem; margin-top:4px;">Scan QR, approve / reject cars</p>
-      </div>
+    <a href="inspection.html" class="station-card">
+      <span class="icon">🔍</span>
+      <h3>Inspection</h3>
+      <p>Scan QR, approve / reject cars</p>
     </a>
 
-    <a href="track.html" style="text-decoration:none;">
-      <div class="card" style="cursor:pointer; text-align:center;">
-        <div style="font-size:3rem; margin-bottom:8px;">🛤️</div>
-        <h3>Track</h3>
-        <p style="font-size:0.85rem; margin-top:4px;">Browse lane assignments for each heat</p>
-      </div>
+    <a href="track.html" class="station-card">
+      <span class="icon">🛤️</span>
+      <h3>Track</h3>
+      <p>Browse lane assignments for each heat</p>
     </a>
 
-    <a href="results.html" style="text-decoration:none;">
-      <div class="card" style="cursor:pointer; text-align:center;">
-        <div style="font-size:3rem; margin-bottom:8px;">🏁</div>
-        <h3>Race Officials</h3>
-        <p style="font-size:0.85rem; margin-top:4px;">Heat control, results entry, round management</p>
-      </div>
+    <a href="results.html" class="station-card">
+      <span class="icon">🏁</span>
+      <h3>Race Officials</h3>
+      <p>Heat control, results entry, round management</p>
     </a>
 
-    <a href="cars.html" style="text-decoration:none;">
-      <div class="card" style="cursor:pointer; text-align:center;">
-        <div style="font-size:3rem; margin-bottom:8px;">🚗</div>
-        <h3>Cars</h3>
-        <p style="font-size:0.85rem; margin-top:4px;">View and edit all car data</p>
-      </div>
+    <a href="cars.html" class="station-card">
+      <span class="icon">🚗</span>
+      <h3>Cars</h3>
+      <p>View and edit all car data</p>
     </a>
 
   </div>
@@ -112,27 +104,21 @@
     const round = state?.rounds;
     const heat  = state?.heats;
     document.getElementById('statusBody').innerHTML = `
-      <div>
-        <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;">Round</div>
-        <div style="font-size:1.5rem;font-weight:800;color:var(--accent)">
-          ${round ? '#' + round.round_number : '—'}
-        </div>
+      <div class="stat-item">
+        <div class="stat-label">Round</div>
+        <div class="stat-val" style="color:var(--accent)">${round ? round.round_number : '—'}</div>
       </div>
-      <div>
-        <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;">Heat</div>
-        <div style="font-size:1.5rem;font-weight:800;color:var(--accent2)">
-          ${heat ? '#' + heat.heat_number : '—'}
-        </div>
+      <div class="stat-item">
+        <div class="stat-label">Heat</div>
+        <div class="stat-val" style="color:var(--accent2)">${heat ? heat.heat_number : '—'}</div>
       </div>
-      <div>
-        <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;">Registered</div>
-        <div style="font-size:1.5rem;font-weight:800;">${cars?.length ?? 0}</div>
+      <div class="stat-item">
+        <div class="stat-label">Cars</div>
+        <div class="stat-val">${cars?.length ?? 0}</div>
       </div>
-      <div>
-        <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;">Legal</div>
-        <div style="font-size:1.5rem;font-weight:800;color:var(--success)">
-          ${cars?.filter(c => c.legal_status === 'legal').length ?? 0}
-        </div>
+      <div class="stat-item">
+        <div class="stat-label">Legal</div>
+        <div class="stat-val" style="color:var(--success)">${cars?.filter(c => c.legal_status === 'legal').length ?? 0}</div>
       </div>
     `;
 

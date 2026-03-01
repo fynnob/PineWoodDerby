@@ -8,20 +8,10 @@
 </head>
 <body>
 
-<!-- Sticky header -->
-<div style="background:#fff; border-bottom:1px solid var(--border); padding:16px; box-shadow:var(--shadow); position:sticky; top:0; z-index:99;">
-  <div style="max-width:640px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px;">
-    <div style="display:flex; align-items:center; gap:10px;">
-      <div>
-        <h1 style="font-size:1.2rem;">Pinewood Derby</h1>
-        <p style="font-size:0.75rem; margin:0;">Car Registration</p>
-      </div>
-    </div>
-    <button class="btn btn-primary btn-sm" id="showQrBtn" onclick="showDeviceQR()" style="display:none;">
-      📱 My QR
-    </button>
-  </div>
-</div>
+<nav class="top-nav">
+  <span class="brand">Pinewood Derby</span>
+  <button class="btn btn-primary btn-sm" id="showQrBtn" onclick="showDeviceQR()" style="display:none; margin-left:auto;">📱 My QR</button>
+</nav>
 
 <div class="container" style="padding-top:20px;">
 
@@ -86,7 +76,7 @@
     <p style="margin-bottom:20px; font-weight:600;">Delete this car? This cannot be undone.</p>
     <div style="display:flex; gap:12px;">
       <button class="btn btn-ghost btn-full" onclick="closeDelModal()">Cancel</button>
-      <button class="btn btn-full" style="background:#dc2626; color:#fff;" onclick="confirmCarDelete()">Delete</button>
+      <button class="btn btn-danger btn-full" onclick="confirmCarDelete()">Delete</button>
     </div>
   </div>
 </div>
@@ -277,7 +267,7 @@
           </div>
           <div style="display:flex; gap:8px; margin-top:10px;">
             <button class="btn btn-sm" style="background:var(--accent2); color:#fff;" onclick="openCarEdit('${car.id}')">Edit</button>
-            <button class="btn btn-sm" style="background:#dc2626; color:#fff;" onclick="openDelModal('${car.id}')">Delete</button>
+            <button class="btn btn-danger btn-sm" onclick="openDelModal('${car.id}')">Delete</button>
           </div>
         </div>
       </div>
@@ -472,7 +462,7 @@
               <div style="font-weight:700; color:var(--muted2); text-decoration:line-through;">${car.kid_name}</div>
               <div style="font-size:0.82rem; color:#dc2626; font-weight:700; margin-top:3px;">Eliminated — thanks for racing!</div>
             </div>
-            <div style="background:#dc2626; color:#fff; padding:5px 12px; border-radius:8px; font-size:0.75rem; font-weight:900; letter-spacing:1px; white-space:nowrap;">OUT</div>
+            <span class="badge" style="background:var(--danger); color:#fff; white-space:nowrap;">OUT</span>
           </div>`;
       }
 

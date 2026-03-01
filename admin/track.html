@@ -53,8 +53,8 @@
     <div class="lane-card"><div class="lane-label">Lane 4</div><div class="car-number">—</div></div>
   </div>
 
-  <div style="margin-top:20px; text-align:center;">
-    <button class="btn btn-ghost" style="border-color:var(--danger);color:var(--danger);" onclick="reraceHeat()">⚠ Re-race Current Heat</button>
+  <div class="card" style="margin-top:4px; text-align:center;">
+    <button class="btn btn-ghost-danger" onclick="reraceHeat()">⚠ Re-race Current Heat</button>
   </div>
 
 </div>
@@ -68,7 +68,7 @@
     <p style="font-size:0.9rem; color:var(--muted2); margin-bottom:20px;">Results will be cleared and the heat reset for re-running.</p>
     <div class="confirm-btns">
       <button class="btn btn-ghost btn-full" onclick="document.getElementById('reraceOverlay').classList.remove('open')">Cancel</button>
-      <button class="btn btn-full" style="background:var(--danger);color:#fff;" onclick="confirmRerace()">⚠ Confirm</button>
+      <button class="btn btn-danger btn-full" onclick="confirmRerace()">⚠ Confirm</button>
     </div>
   </div>
 </div>
