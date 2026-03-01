@@ -152,7 +152,7 @@
       setSlide(`<div class="slide-image"><img src="${esc(data.url)}" /></div>`);
 
     } else if (data.type === 'register') {
-      const url = data.url || (location.origin + (location.pathname.includes('PineWoodDerby') ? '/PineWoodDerby/' : '/'));
+      const url = data.url || (location.origin + '/');
       setSlide(`
         <div class="reg-title">Register Your Car!</div>
         <div class="reg-step">Scan the QR code or visit the link below,<br>then bring your car to the inspection table.</div>
