@@ -418,30 +418,6 @@
       font-size: 0.7rem; font-weight: 800; letter-spacing: 4px;
       text-transform: uppercase; color: var(--muted);
     }
-
-    /* ── Announcer overlay (z-index 700, above everything) ── */
-    .announce-overlay {
-      position: fixed; inset: 0; z-index: 700;
-      display: none;
-      flex-direction: column; align-items: center; justify-content: center;
-      text-align: center; padding: 60px 48px;
-    }
-    .announce-overlay.active { display: flex; }
-    .announce-overlay.type-rerace  { background: rgba(220,38,38,0.95); }
-    .announce-overlay.type-message { background: rgba(11,13,20,0.96); border: 4px solid var(--amber); }
-    .ann-text {
-      font-size: 5rem;
-      font-weight: 900;
-      color: #fff;
-      line-height: 1.1;
-      letter-spacing: 2px;
-    }
-    .announce-overlay.type-message .ann-text { font-size: 3.5rem; color: var(--amber); }
-    .ann-sub {
-      font-size: 1.15rem; font-weight: 700;
-      color: rgba(255,255,255,0.75);
-      margin-top: 20px; letter-spacing: 2px; text-transform: uppercase;
-    }
   </style>
 </head>
 <body>
@@ -522,12 +498,6 @@
   <div class="cel-scroll-wrap">
     <div class="cel-scroll" id="celScroll"></div>
   </div>
-</div>
-
-<!-- Announcer overlay (highest z-index, above everything) -->
-<div class="announce-overlay" id="announceOverlay">
-  <div class="ann-text" id="announceText"></div>
-  <div class="ann-sub" id="announceSub"></div>
 </div>
 
 <script src="../config.js"></script>
@@ -773,25 +743,6 @@
     scroll.style.animation = 'none';
     scroll.offsetHeight; // reflow
     scroll.style.animation = '';
-  }
-
-  // ── Announcer channel ─────────────────────────────────────────
-  sb.channel('announcer-control')
-    .on('broadcast', { event: 'announce' }, ({ payload }) => handleAnnouncement(payload))
-    .subscribe();
-
-  function handleAnnouncement(data) {
-    const overlay = document.getElementById('announceOverlay');
-    if (data.type === 'clear') {
-      overlay.className = 'announce-overlay';
-      return;
-    }
-    document.getElementById('announceText').textContent = data.message || '';
-    document.getElementById('announceSub').textContent  = data.sub || '';
-    overlay.className = 'announce-overlay active type-' + (data.type || 'message');
-    if (data.duration > 0) {
-      setTimeout(() => { overlay.className = 'announce-overlay'; }, data.duration);
-    }
   }
 
   // ── Init + poll fallback every 8 s ────────────────────────────

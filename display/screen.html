@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Derby Screen</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:     #0b0d14;
+      --card:   #1a1e2e;
+      --border: #252a3d;
+      --amber:  #f59e0b;
+      --text:   #e8eaf2;
+      --muted:  #6b738f;
+      --gold:   #ffd700;
+      --silver: #b8bec8;
+      --bronze: #cd7f32;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      width: 100vw; height: 100vh;
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ── Slides ── */
+    #slide {
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 60px; text-align: center;
+      animation: fadeIn 0.4s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .idle-msg {
+      font-size: 1.2rem; font-weight: 700; letter-spacing: 3px;
+      text-transform: uppercase; color: var(--muted);
+    }
+
+    /* Text slide */
+    .slide-text { font-size: 5rem; font-weight: 900; line-height: 1.15; max-width: 1300px; }
+
+    /* Image slide */
+    .slide-image img { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 20px; }
+
+    /* Registration slide */
+    .reg-title    { font-size: 3.5rem; font-weight: 900; color: var(--amber); margin-bottom: 16px; }
+    .reg-step     { font-size: 1.4rem; color: var(--muted); margin-bottom: 36px; max-width: 700px; line-height: 1.5; }
+    .reg-qr-wrap  { background: #fff; border-radius: 20px; padding: 24px; display: inline-block; margin-bottom: 24px; }
+    .reg-url      { font-size: 1.5rem; font-weight: 800; letter-spacing: 2px; color: var(--text); }
+
+    /* Race view */
+    .race-header  { font-size: 0.8rem; font-weight: 900; letter-spacing: 5px; text-transform: uppercase; color: var(--muted); margin-bottom: 36px; }
+    .race-grid    { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 960px; width: 100%; }
+    .race-card    { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 28px 24px; text-align: center; }
+    .rc-lane-lbl  { font-size: 0.7rem; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+    .rc-name      { font-size: 3rem; font-weight: 900; line-height: 1; margin-bottom: 8px; }
+    .rc-num       { font-size: 1rem; font-weight: 700; color: var(--amber); }
+
+    /* Re-race banner */
+    #reraceBanner {
+      display: none; position: fixed; inset: 0; z-index: 999;
+      background: rgba(220, 38, 38, 0.95);
+      flex-direction: column; align-items: center; justify-content: center;
+      font-size: 5rem; font-weight: 900; letter-spacing: 6px; text-transform: uppercase;
+      line-height: 1.2; color: #fff;
+    }
+    #reraceBanner.show { display: flex; }
+    #reraceBanner small { font-size: 1.5rem; letter-spacing: 4px; }
+  </style>
+</head>
+<body>
+
+<div id="slide">
+  <div class="idle-msg">Waiting for announcer…</div>
+</div>
+
+<div id="reraceBanner">
+  ⚠ RE-RACE
+  <small style="margin-top:12px;">Please reset the track</small>
+</div>
+
+<script src="../config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function setSlide(html) {
+    const el = document.getElementById('slide');
+    el.style.animation = 'none';
+    el.offsetHeight; // reflow
+    el.style.animation = '';
+    el.innerHTML = html;
+  }
+
+  function showSlide(data) {
+    if (data.type === 'idle') {
+      setSlide(`<div class="idle-msg">Waiting for announcer…</div>`);
+
+    } else if (data.type === 'text') {
+      setSlide(`<div class="slide-text">${esc(data.message)}</div>`);
+
+    } else if (data.type === 'image') {
+      setSlide(`<div class="slide-image"><img src="${esc(data.url)}" /></div>`);
+
+    } else if (data.type === 'register') {
+      const url = data.url || (location.origin + (location.pathname.includes('PineWoodDerby') ? '/PineWoodDerby/' : '/'));
+      setSlide(`
+        <div class="reg-title">Register Your Car!</div>
+        <div class="reg-step">Scan the QR code or visit the link below,<br>then bring your car to the inspection table.</div>
+        <div class="reg-qr-wrap" id="regQR"></div>
+        <div class="reg-url">${esc(url)}</div>`);
+      new QRCode(document.getElementById('regQR'), {
+        text: url, width: 240, height: 240,
+        colorDark: '#000', colorLight: '#fff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+
+    } else if (data.type === 'race') {
+      loadRaceView();
+    }
+  }
+
+  async function loadRaceView() {
+    setSlide(`<div class="idle-msg">Loading race…</div>`);
+
+    const { data: state } = await sb.from('race_state')
+      .select('current_heat_id, heats(heat_number, rounds(round_number))')
+      .eq('id', 1).single();
+
+    if (!state?.current_heat_id) {
+      setSlide(`<div class="idle-msg">No active heat.</div>`); return;
+    }
+
+    const { data: entries } = await sb.from('heat_entries')
+      .select('lane_number, cars(car_number, kid_name)')
+      .eq('heat_id', state.current_heat_id)
+      .order('lane_number');
+
+    const round = state.heats?.rounds?.round_number ?? '?';
+    const heatN = state.heats?.heat_number ?? '?';
+    const borderColors = ['#ffd700','#b8bec8','#cd7f32','#4f8ef7'];
+
+    setSlide(`
+      <div class="race-header">Round ${round} &mdash; Heat ${heatN}</div>
+      <div class="race-grid">
+        ${(entries || []).map((e, i) => `
+          <div class="race-card" style="border-top: 5px solid ${borderColors[i] || '#444'};">
+            <div class="rc-lane-lbl">Lane ${e.lane_number}</div>
+            <div class="rc-name">${esc(e.cars?.kid_name ?? '—')}</div>
+            <div class="rc-num">Car #${e.cars?.car_number ?? '—'}</div>
+          </div>`).join('')}
+      </div>`);
+  }
+
+  // ── Listen for announcer slides ──────────────────────────────
+  sb.channel('announcer-control')
+    .on('broadcast', { event: 'slide' }, ({ payload }) => showSlide(payload))
+    .subscribe();
+
+  // ── Listen for re-race ───────────────────────────────────────
+  sb.channel('rerace-control')
+    .on('broadcast', { event: 'rerace' }, () => {
+      const banner = document.getElementById('reraceBanner');
+      banner.classList.add('show');
+      setTimeout(() => banner.classList.remove('show'), 7000);
+    })
+    .subscribe();
+</script>
+</body>
+</html>

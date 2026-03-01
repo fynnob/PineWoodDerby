@@ -33,7 +33,7 @@
   <a href="track.html" class="active">Track</a>
   <a href="results.html">Officials</a>
   <a href="cars.html">Cars</a>
-  <a href="editor.html">Editor</a>
+  <a href="announcer.html">Screen</a>
 </nav>
 
 <div class="container">
@@ -53,17 +53,19 @@
     <div class="lane-card"><div class="lane-label">Lane 4</div><div class="car-number">—</div></div>
   </div>
 
-  <!-- Re-race button -->
-  <div style="margin-top:20px;">
-    <button class="btn btn-lg btn-full" onclick="broadcastRerace()"
-            style="border-color:var(--danger); color:var(--danger); background:transparent;">
-      🔄 Re-race This Heat
-    </button>
+  <div style="margin-top:20px; text-align:center;">
+    <button class="btn btn-ghost" style="border-color:var(--danger);color:var(--danger);" onclick="reraceHeat()">⚠ Re-race Current Heat</button>
   </div>
 
 </div>
 
-<div id="toast"></div>
+<!-- Re-race banner -->
+<div id="reraceBanner" style="display:none; position:fixed; inset:0; z-index:999; background:rgba(220,38,38,0.96);
+     flex-direction:column; align-items:center; justify-content:center; text-align:center;
+     font-size:3.5rem; font-weight:900; letter-spacing:4px; color:#fff;">
+  ⚠ RE-RACE
+  <div style="font-size:1rem; letter-spacing:3px; margin-top:10px; opacity:.85;">Reset the track and re-run</div>
+</div>
 
 <script src="../config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -217,21 +219,24 @@
   // Fallback poll every 15 s in case Realtime misses an event
   setInterval(refreshState, 15000);
 
-  // ── Re-race broadcast ──────────────────────────────────────────────────
-  const announceCh = sb.channel('announcer-control').subscribe();
-
-  function broadcastRerace() {
-    announceCh.send({ type: 'broadcast', event: 'announce',
-      payload: { type: 're-race', message: '🔄 RE-RACE', sub: 'Please reset the track', duration: 0 }
-    });
-    toast('Re-race signal sent to display!');
+  // ── Re-race ───────────────────────────────────────────────────
+  async function reraceHeat() {
+    if (!currentHeatId) { alert('No active heat.'); return; }
+    if (!confirm('Signal a re-race for the current heat? Results will be cleared.')) return;
+    await sb.from('heat_results').delete().eq('heat_id', currentHeatId);
+    await sb.from('heats').update({ status: 'active' }).eq('id', currentHeatId);
+    sb.channel('rerace-control').send({ type: 'broadcast', event: 'rerace', payload: {} });
+    refreshState();
   }
 
-  function toast(msg, ok = true) {
-    const el = document.getElementById('toast');
-    el.textContent = msg; el.className = ok ? 'show ok' : 'show err';
-    setTimeout(() => el.className = '', 3000);
-  }
+  // Banner when re-race is triggered from any page
+  sb.channel('rerace-control')
+    .on('broadcast', { event: 'rerace' }, () => {
+      const b = document.getElementById('reraceBanner');
+      b.style.display = 'flex';
+      setTimeout(() => { b.style.display = 'none'; }, 6000);
+    })
+    .subscribe();
 
   init();
 </script>

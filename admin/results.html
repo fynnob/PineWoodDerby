@@ -33,7 +33,7 @@
   <a href="track.html">Track</a>
   <a href="results.html" class="active">Officials</a>
   <a href="cars.html">Cars</a>
-  <a href="editor.html">Editor</a>
+  <a href="announcer.html">Screen</a>
 </nav>
 
 <div class="container">
@@ -45,8 +45,10 @@
         <div style="font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px;">Current Heat</div>
         <h2 id="heatLabel" style="color:var(--accent2);">Loading…</h2>
       </div>
-      <button class="btn btn-primary btn-lg" id="nextHeatBtn" onclick="advanceHeat()">▶ Next Heat</button>
-      <button class="btn btn-ghost btn-lg" onclick="broadcastRerace()" style="border-color:var(--danger);color:var(--danger);">🔄 Re-race</button>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-lg" style="border-color:var(--danger);color:var(--danger);" onclick="reraceHeat()">⚠ Re-race</button>
+        <button class="btn btn-primary btn-lg" id="nextHeatBtn" onclick="advanceHeat()">▶ Next Heat</button>
+      </div>
     </div>
 
     <!-- Mode toggle -->
@@ -87,17 +89,36 @@
     <div class="card-title">Round Progress</div>
     <div id="roundBody"><span class="spinner"></span></div>
   </div>
-  <!-- ── Announcer ────────────────────────────────────────── -->
+
+  <!-- ── Edit Past Results ──────────────────────────────────── -->
   <div class="card">
-    <div class="card-title">Announcer</div>
-    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
-      <button class="btn btn-ghost btn-sm" onclick="sendPreset('register')">&#128241; Registration Reminder</button>
-      <button class="btn btn-ghost btn-sm" onclick="broadcastRerace()">&#128260; Re-race</button>
-      <button class="btn btn-ghost btn-sm" style="border-color:var(--muted);" onclick="clearAnnounce()">&#10005; Clear Display</button>
+    <div class="card-title">Edit Past Results</div>
+    <div id="editResLock">
+      <p style="font-size:0.85rem; color:var(--muted2); margin-bottom:12px;">Officials-only. Enter the officials code to unlock.</p>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <input type="tel" id="editResPin" maxlength="4" placeholder="••••" autocomplete="off"
+               style="text-align:center;font-size:1.5rem;letter-spacing:8px;width:110px;" />
+        <button class="btn btn-primary" onclick="checkEditResPin()">Unlock</button>
+      </div>
+      <p id="editResPinErr" style="color:var(--danger);font-size:0.82rem;min-height:1.2em;margin-top:6px;"></p>
     </div>
-    <div style="display:flex; gap:8px;">
-      <input type="text" id="announceInput" placeholder="Custom message for display…" style="flex:1;" />
-      <button class="btn btn-primary btn-sm" onclick="sendCustomAnnounce()">Send</button>
+    <div id="editResBody" style="display:none;">
+      <p style="font-size:0.85rem; color:var(--muted2); margin-bottom:12px;">Tap a completed heat to re-enter its results.</p>
+      <div id="editResList"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Edit Heat Results modal -->
+<div class="confirm-overlay" id="editHeatOverlay">
+  <div class="confirm-box" style="max-width:420px; width:100%;">
+    <h3 id="editHeatTitle" style="margin-bottom:16px;">Edit Heat</h3>
+    <div class="finish-grid" id="editHeatGrid"></div>
+    <p id="editHeatErr" style="color:var(--danger);font-size:0.82rem;min-height:1.2em;margin-top:8px;"></p>
+    <div class="confirm-btns" style="margin-top:12px;">
+      <button class="btn btn-ghost btn-full" onclick="document.getElementById('editHeatOverlay').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary btn-full" id="saveEditHeatBtn" onclick="saveEditHeat()">Save</button>
     </div>
   </div>
 </div>
@@ -309,6 +330,115 @@
     if (error) { toast('Failed: ' + error.message, false); return; }
     toast('Cleared.');
     loadPage();
+  }
+
+  // ── Re-race ───────────────────────────────────────────────────
+  async function reraceHeat() {
+    if (!currentHeatId) { toast('No active heat.', false); return; }
+    if (!confirm('Mark current heat for re-race? Any entered results will be cleared.')) return;
+    await sb.from('heat_results').delete().eq('heat_id', currentHeatId);
+    await sb.from('heats').update({ status: 'active' }).eq('id', currentHeatId);
+    sb.channel('rerace-control').send({ type: 'broadcast', event: 'rerace', payload: {} });
+    toast('Re-race signalled!');
+    loadPage();
+  }
+
+  // ── Edit Past Results (PIN 1357) ──────────────────────────────
+  const EDIT_PIN = '1357';
+  let _editHeatId = null;
+  let _editHeatEntries = [];
+
+  function checkEditResPin() {
+    const input = document.getElementById('editResPin');
+    if (input.value === EDIT_PIN) {
+      sessionStorage.setItem('derby_edit_pin', EDIT_PIN);
+      document.getElementById('editResLock').style.display = 'none';
+      document.getElementById('editResBody').style.display  = 'block';
+      loadEditResList();
+    } else {
+      document.getElementById('editResPinErr').textContent = 'Wrong code';
+      input.value = '';
+    }
+  }
+
+  function initEditSection() {
+    if (sessionStorage.getItem('derby_edit_pin') === EDIT_PIN) {
+      document.getElementById('editResLock').style.display = 'none';
+      document.getElementById('editResBody').style.display  = 'block';
+    }
+  }
+
+  async function loadEditResList() {
+    const el = document.getElementById('editResList');
+    if (!currentRoundId) { el.innerHTML = '<div class="empty-state">No active round.</div>'; return; }
+    const { data: heats } = await sb.from('heats')
+      .select('id, heat_number')
+      .eq('round_id', currentRoundId)
+      .eq('status', 'completed')
+      .order('heat_number');
+    if (!heats?.length) { el.innerHTML = '<div class="empty-state">No completed heats yet.</div>'; return; }
+    el.innerHTML = heats.map(h => `
+      <div class="leaderboard-row" style="cursor:pointer;" onclick="openEditHeat('${h.id}', ${h.heat_number})">
+        <div class="rank">H${h.heat_number}</div>
+        <div class="name">Heat ${h.heat_number}</div>
+        <div class="pts">Edit &rarr;</div>
+      </div>`).join('');
+  }
+
+  async function openEditHeat(heatId, heatNumber) {
+    _editHeatId = heatId;
+    document.getElementById('editHeatErr').textContent = '';
+    const [{ data: entries }, { data: result }] = await Promise.all([
+      sb.from('heat_entries').select('lane_number, car_id, cars(car_number, kid_name)').eq('heat_id', heatId).order('lane_number'),
+      sb.from('heat_results').select('*').eq('heat_id', heatId).maybeSingle()
+    ]);
+    _editHeatEntries = (entries || []).map(e => ({
+      lane_number: e.lane_number, car_id: e.car_id,
+      car_number: e.cars.car_number, kid_name: e.cars.kid_name
+    }));
+    const posMap = {};
+    if (result) {
+      posMap[result.first_place_car] = 1; posMap[result.second_place_car] = 2;
+      posMap[result.third_place_car] = 3; posMap[result.fourth_place_car] = 4;
+    }
+    const positions = ['1st','2nd','3rd','4th'];
+    document.getElementById('editHeatTitle').textContent = `Edit Heat ${heatNumber}`;
+    document.getElementById('editHeatGrid').innerHTML = _editHeatEntries.map(e => `
+      <div class="finish-lane">
+        <div class="lane-heading">Lane ${e.lane_number}</div>
+        <div class="car-badge">#${e.car_number}</div>
+        <div style="font-size:0.85rem;color:var(--muted);margin:4px 0 8px;">${e.kid_name}</div>
+        <select id="editpos_${e.car_id}">
+          <option value="">Finish…</option>
+          ${positions.map((p,i) => `<option value="${i+1}" ${posMap[e.car_id]===i+1?'selected':''}>${p}</option>`).join('')}
+        </select>
+      </div>`).join('');
+    document.getElementById('editHeatOverlay').classList.add('open');
+  }
+
+  async function saveEditHeat() {
+    const posMap = {};
+    for (const e of _editHeatEntries) {
+      const val = parseInt(document.getElementById('editpos_' + e.car_id)?.value);
+      if (!val) { document.getElementById('editHeatErr').textContent = 'Set a position for every car.'; return; }
+      if (posMap[val]) { document.getElementById('editHeatErr').textContent = "Two cars can't share a position!"; return; }
+      posMap[val] = e.car_id;
+    }
+    const btn = document.getElementById('saveEditHeatBtn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      await sb.from('heat_results').delete().eq('heat_id', _editHeatId);
+      const { error } = await sb.from('heat_results').insert({
+        heat_id: _editHeatId, first_place_car: posMap[1],
+        second_place_car: posMap[2], third_place_car: posMap[3], fourth_place_car: posMap[4]
+      });
+      if (error) throw error;
+      toast('Results updated!');
+      document.getElementById('editHeatOverlay').classList.remove('open');
+      loadPage();
+    } catch(err) {
+      document.getElementById('editHeatErr').textContent = 'Save failed: ' + err.message;
+    } finally { btn.disabled = false; btn.textContent = 'Save'; }
   }
 
   // ── Advance heat ──────────────────────────────────────────────
@@ -686,43 +816,10 @@
       });
     }
   }
-  // ── Announcer / Re-race ───────────────────────────────────────────────────
-  const announceCh = sb.channel('announcer-control').subscribe();
-
-  function broadcastRerace() {
-    announceCh.send({ type: 'broadcast', event: 'announce',
-      payload: { type: 're-race', message: '🔄 RE-RACE', sub: 'Please reset the track', duration: 0 }
-    });
-    toast('Re-race signal sent to display!');
-  }
-
-  function sendPreset(preset) {
-    if (preset === 'register') {
-      announceCh.send({ type: 'broadcast', event: 'announce',
-        payload: { type: 'message',
-                   message: 'Register Your Car!',
-                   sub: 'Visit: fynnob.github.io/PineWoodDerby',
-                   duration: 0 }
-      });
-      toast('Registration reminder sent to display!');
-    }
-  }
-
-  function sendCustomAnnounce() {
-    const msg = document.getElementById('announceInput').value.trim();
-    if (!msg) return;
-    announceCh.send({ type: 'broadcast', event: 'announce',
-      payload: { type: 'message', message: msg, duration: 0 }
-    });
-    document.getElementById('announceInput').value = '';
-    toast('Announcement sent!');
-  }
-
-  function clearAnnounce() {
-    announceCh.send({ type: 'broadcast', event: 'announce', payload: { type: 'clear' } });
-    toast('Display cleared.');
-  }
 
   loadPage();
+  initEditSection();
+  sb.channel('rerace-control').subscribe(); // keep channel open for sending
+</script>
 </body>
 </html>

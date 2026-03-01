@@ -55,10 +55,10 @@
     </div>
   </div>
 
-  <!-- Race Status -->
+  <!-- Race Status for this device's cars -->
   <div class="card" id="raceStatusCard" style="display:none;">
-    <div class="card-title">Race Status</div>
-    <div id="raceDashboard"><span class="spinner"></span></div>
+    <div class="card-title">Live Race Status</div>
+    <div id="raceStatusBody"><span class="spinner"></span></div>
   </div>
 
 </div>
@@ -393,85 +393,92 @@
     }
   }
 
-  // ── Parent race dashboard ──────────────────────────────────────────────
-  async function refreshDashboard() {
+  // ── Race Status ───────────────────────────────────────────────
+  async function loadRaceStatus() {
     const myCars = getMyCars();
     const card   = document.getElementById('raceStatusCard');
     if (!myCars.length) { card.style.display = 'none'; return; }
+    card.style.display = 'block';
+    const el = document.getElementById('raceStatusBody');
 
     const { data: state } = await sb.from('race_state')
-      .select('current_round_id, current_heat_id, heats(heat_number)')
-      .eq('id', 1).single();
+      .select('current_round_id, current_heat_id').eq('id', 1).single();
 
-    if (!state?.current_round_id) { card.style.display = 'none'; return; }
-    card.style.display = 'block';
+    if (!state?.current_round_id) {
+      el.innerHTML = '<div class="empty-state">Racing hasn\'t started yet — check back soon!</div>';
+      return;
+    }
 
-    const myCarIds  = myCars.map(c => c.id);
-    const roundId   = state.current_round_id;
-    const curHeatNum = state.heats?.heat_number ?? 0;
+    // All heats for current round, ordered
+    const { data: heats } = await sb.from('heats')
+      .select('id, heat_number, status')
+      .eq('round_id', state.current_round_id)
+      .order('heat_number');
 
-    const [{ data: results }, { data: allCars }, { data: myEntries }] = await Promise.all([
+    const currentIdx = (heats || []).findIndex(h => h.id === state.current_heat_id);
+
+    // Entries for all non-completed heats (to find upcoming races)
+    const upcomingIds = (heats || []).filter(h => h.status !== 'completed').map(h => h.id);
+    const { data: futureEntries } = upcomingIds.length
+      ? await sb.from('heat_entries').select('heat_id, car_id').in('heat_id', upcomingIds)
+      : { data: [] };
+
+    // Next heat index (heats away) per car
+    const myIdSet = new Set(myCars.map(c => c.id));
+    const heatAwayFor = {};
+    (futureEntries || []).forEach(e => {
+      if (!myIdSet.has(e.car_id)) return;
+      const hIdx = heats.findIndex(h => h.id === e.heat_id);
+      if (hIdx === -1) return;
+      const away = hIdx - currentIdx;
+      if (heatAwayFor[e.car_id] === undefined || away < heatAwayFor[e.car_id])
+        heatAwayFor[e.car_id] = away;
+    });
+
+    // Standings — fetch points for all legal cars to rank everyone
+    const [{ data: results }, { data: allActive }] = await Promise.all([
       sb.from('heat_results')
         .select('first_place_car, second_place_car, third_place_car, fourth_place_car, heats!inner(round_id)')
-        .eq('heats.round_id', roundId),
-      sb.from('cars').select('id, car_number, kid_name').eq('eliminated', false),
-      sb.from('heat_entries')
-        .select('car_id, heats!inner(heat_number, status)')
-        .eq('heats.round_id', roundId)
-        .in('car_id', myCarIds)
+        .eq('heats.round_id', state.current_round_id),
+      sb.from('cars').select('id').eq('eliminated', false)
     ]);
 
     const pts = {};
-    (allCars || []).forEach(c => pts[c.id] = 0);
-    (results  || []).forEach(r => {
+    (allActive || []).forEach(c => pts[c.id] = 0);
+    (results || []).forEach(r => {
       if (pts[r.first_place_car]  !== undefined) pts[r.first_place_car]  += 1;
       if (pts[r.second_place_car] !== undefined) pts[r.second_place_car] += 2;
       if (pts[r.third_place_car]  !== undefined) pts[r.third_place_car]  += 3;
       if (pts[r.fourth_place_car] !== undefined) pts[r.fourth_place_car] += 4;
     });
-    const sorted = (allCars || [])
-      .map(c => ({ ...c, points: pts[c.id] ?? 0 }))
-      .filter(c => c.points > 0)
-      .sort((a, b) => a.points - b.points || a.car_number - b.car_number);
-    const posMap = {};
-    sorted.forEach((c, i) => posMap[c.id] = i + 1);
 
-    const nextHeatMap = {};
-    const racingNow   = new Set();
-    (myEntries || []).forEach(e => {
-      const h = e.heats;
-      if (h.status === 'active')  racingNow.add(e.car_id);
-      if (h.status === 'pending') {
-        if (nextHeatMap[e.car_id] == null || h.heat_number < nextHeatMap[e.car_id])
-          nextHeatMap[e.car_id] = h.heat_number;
-      }
-    });
+    const sorted = Object.entries(pts)
+      .filter(([, p]) => p > 0)
+      .sort((a, b) => a[1] - b[1]);
+    const rankOf = {};
+    sorted.forEach(([id], i) => rankOf[id] = i + 1);
+    const totalRanked = sorted.length;
 
-    const ordinal = n => n + (['st','nd','rd'][n-1] || 'th');
+    el.innerHTML = myCars.map(car => {
+      const away = heatAwayFor[car.id];
+      let heatLine;
+      if (away === undefined)    heatLine = 'Done for this round';
+      else if (away === 0)       heatLine = '<strong style="color:var(--accent);">Racing NOW!</strong>';
+      else                       heatLine = `Races in <strong>${away}</strong> heat${away !== 1 ? 's' : ''}`;
 
-    document.getElementById('raceDashboard').innerHTML = myCars.map(car => {
-      let nextStr;
-      if (racingNow.has(car.id)) {
-        nextStr = '🏁 Racing now!';
-      } else {
-        const next = nextHeatMap[car.id];
-        if (next != null) {
-          const away = next - curHeatNum;
-          nextStr = away <= 1 ? '⏩ Up next!' : `Races in ${away} heat${away === 1 ? '' : 's'}`;
-        } else {
-          nextStr = 'Done for this round';
-        }
-      }
-      const pos    = posMap[car.id];
-      const posStr = pos ? ordinal(pos) + ' place' : '—';
+      const rank = rankOf[car.id];
+      const rankLine = rank
+        ? `<span style="font-weight:800; color:var(--accent2);">#${rank}</span><span style="font-size:0.8rem; color:var(--muted2);"> of ${totalRanked}</span>`
+        : '<span style="color:var(--muted2); font-size:0.85rem;">Not yet ranked</span>';
+
       return `
-        <div style="display:flex; align-items:center; justify-content:space-between;
-                    padding:12px 0; border-bottom:1px solid var(--border);">
-          <div>
-            <div style="font-weight:700;">#${car.car_number} ${car.kid_name}</div>
-            <div style="font-size:0.82rem; color:var(--muted2); margin-top:3px;">${nextStr}</div>
+        <div style="display:flex; align-items:center; gap:14px; padding:13px 0; border-bottom:1px solid var(--border);">
+          <div style="font-size:2rem; font-weight:900; color:var(--accent); min-width:40px; text-align:center;">#${car.car_number}</div>
+          <div style="flex:1;">
+            <div style="font-weight:700;">${car.kid_name}</div>
+            <div style="font-size:0.85rem; color:var(--muted2); margin-top:3px;">${heatLine}</div>
           </div>
-          <div style="font-size:1.1rem; font-weight:900; color:var(--accent);">${posStr}</div>
+          <div style="text-align:right;">${rankLine}</div>
         </div>`;
     }).join('');
   }
@@ -488,19 +495,15 @@
       const list = getMyCars().map(c => c.id === car.id ? { ...c, legal_status: car.legal_status } : c);
       localStorage.setItem(STORE_KEY, JSON.stringify(list));
     })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'race_state' }, () => loadRaceStatus())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'heat_results' }, () => loadRaceStatus())
     .subscribe();
 
-  // Refresh dashboard when race advances or results come in
-  sb.channel('parent-race-state')
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'race_state' }, refreshDashboard)
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'heat_results' }, refreshDashboard)
-    .subscribe();
-
-  // ── Init ───────────────────────────────────────────────
+  // ── Init ──────────────────────────────────────────────────────
   getDeviceToken(); // ensure token exists early
   renderCarList();
   renderDeviceQR();
-  refreshDashboard();
+  loadRaceStatus();
 </script>
 </body>
 </html>
