@@ -512,10 +512,52 @@
   }
 
   // ── Core: create round, heats, entries ────────────────────────
+
+  function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+
+  // Fisher-Yates shuffle — returns a new array
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // Find the best "lane stride" s such that:
+  //  · all 4 cars in every heat are distinct  (s, 2s, 3s ≠ 0 mod N)
+  //  · s is coprime to N  (every car gets varied opponents across heats)
+  //  · s is as close to N/4 as possible  (maximises spread between opponents)
+  function findBestStep(n) {
+    const target = n / 4;
+    let best = null;
+    for (let s = 1; s < n; s++) {
+      if ((2 * s) % n === 0 || (3 * s) % n === 0) continue; // would collide in heat
+      const g    = gcd(s, n);
+      const dist = Math.abs(s - target);
+      // Primary: minimise gcd (want 1). Secondary: closest to target. Tie: larger s wins.
+      if (!best || g < best.g ||
+         (g === best.g && dist < best.dist) ||
+         (g === best.g && dist === best.dist && s > best.s)) {
+        best = { s, g, dist };
+      }
+    }
+    return best ? best.s : 1;
+  }
+
+  // Build an N-heat schedule where:
+  //  · every car races EXACTLY ONCE on each lane  (never 5 times, never 2-car heats)
+  //  · every heat has EXACTLY 4 cars
+  //  · car list is shuffled randomly  → no speed-adjacency clustering
+  //  · lane stride ≈ N/4, coprime to N → opponents spread across the whole field
   function generateSchedule(carIds) {
-    const n = carIds.length;
+    const ids = shuffle(carIds);   // random order breaks speed-adjacency bias
+    const n   = ids.length;
+    const s   = findBestStep(n);   // balanced stride
+
     return Array.from({ length: n }, (_, h) =>
-      Array.from({ length: 4 }, (_, k) => ({ lane: k+1, carId: carIds[(h+k) % n] }))
+      [0, 1, 2, 3].map(k => ({ lane: k + 1, carId: ids[(h + k * s) % n] }))
     );
   }
 
