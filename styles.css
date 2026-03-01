@@ -239,8 +239,8 @@ input:focus, select:focus, textarea:focus {
   letter-spacing: 1px; color: var(--muted); margin-bottom: 6px;
 }
 
-.lane-card .car-number  { font-size: 3rem; font-weight: 900; color: var(--accent); line-height: 1; }
-.lane-card .kid-name    { font-size: 0.9rem; font-weight: 600; color: var(--text2); margin-top: 4px; }
+.lane-card .car-number  { font-size: 4.5rem; font-weight: 900; color: var(--accent); line-height: 1; }
+.lane-card .kid-name    { font-size: 1.3rem; font-weight: 700; color: var(--text2); margin-top: 6px; }
 
 /* ── Leaderboard ────────────────────────────────────────────── */
 .leaderboard-row {
@@ -312,7 +312,16 @@ input:focus, select:focus, textarea:focus {
 
 /* Heat navigation (track page) */
 .heat-nav { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:16px; }
-.heat-nav .heat-nav-label { flex:1; text-align:center; font-size:1.05rem; font-weight:800; }
+.heat-nav .heat-nav-label { flex:1; text-align:center; font-size:1.3rem; font-weight:800; }
+
+/* Heat state colors */
+.heat-nav-label.state-current { color: #dc2626; }
+.heat-nav-label.state-past    { color: #16a34a; }
+.heat-nav-label.state-future  { color: var(--muted); }
+
+/* Lane card heat state borders */
+.lane-board.state-current .lane-card { border-color: #dc2626; border-width: 2px; }
+.lane-board.state-past    .lane-card { border-color: #16a34a; border-width: 2px; }
 
 /* ── QR block ───────────────────────────────────────────────── */
 .qr-block {

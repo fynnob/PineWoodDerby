@@ -59,8 +59,9 @@
 <script>
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  let allHeats   = [];  // [{id, heat_number, round_number}]
-  let viewIndex  = 0;   // index into allHeats we're currently viewing
+  let allHeats      = [];  // [{id, heat_number, round_number, status}]
+  let viewIndex    = 0;    // index into allHeats we're currently viewing
+  let currentHeatId = null;
 
   // ── Load all heats for current round ─────────────────────────
   async function init() {
@@ -76,9 +77,11 @@
       return;
     }
 
+    currentHeatId = state.current_heat_id;
+
     const { data: heats } = await sb
       .from('heats')
-      .select('id, heat_number, rounds(round_number)')
+      .select('id, heat_number, status, rounds(round_number)')
       .eq('round_id', state.current_round_id)
       .order('heat_number');
 
@@ -91,7 +94,8 @@
     allHeats = heats.map(h => ({
       id:           h.id,
       heat_number:  h.heat_number,
-      round_number: h.rounds?.round_number ?? '?'
+      round_number: h.rounds?.round_number ?? '?',
+      status:       h.status
     }));
 
     // Default to current heat
@@ -111,8 +115,15 @@
   async function showHeat(idx) {
     const h = allHeats[idx];
 
-    document.getElementById('heatNavLabel').textContent =
-      `Round ${h.round_number} — Heat ${h.heat_number} (${idx + 1}/${allHeats.length})`;
+    const heatState = h.id === currentHeatId ? 'current'
+                    : h.status === 'completed'  ? 'past'
+                    : 'future';
+
+    const label = document.getElementById('heatNavLabel');
+    label.textContent = `Round ${h.round_number} — Heat ${h.heat_number} (${idx + 1}/${allHeats.length})`;
+    label.className = 'heat-nav-label state-' + heatState;
+
+    document.getElementById('laneBoard').className = 'lane-board state-' + heatState;
     document.getElementById('prevBtn').disabled = idx === 0;
     document.getElementById('nextBtn').disabled = idx === allHeats.length - 1;
 
