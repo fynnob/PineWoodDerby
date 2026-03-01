@@ -155,15 +155,56 @@
       </div>`).join('');
   }
 
-  // Auto-refresh: if we're viewing the current heat, keep it live
-  setInterval(async () => {
-    if (!allHeats.length) { init(); return; }
+  // ── Live state sync (no auto-navigate) ───────────────────────
+  // Updates currentHeatId + all heat statuses, then re-renders
+  // whatever heat the user is currently viewing (viewIndex unchanged).
+  async function refreshState() {
+    if (!allHeats.length) { await init(); return; }
+
+    // Fetch latest race_state
     const { data: state } = await sb
-      .from('race_state').select('current_heat_id').eq('id', 1).single();
-    const currentIdx = allHeats.findIndex(h => h.id === state?.current_heat_id);
-    // Only auto-jump if user is on current heat
-    if (currentIdx >= 0 && viewIndex === currentIdx) showHeat(currentIdx);
-  }, 10000);
+      .from('race_state')
+      .select('current_heat_id')
+      .eq('id', 1)
+      .single();
+    currentHeatId = state?.current_heat_id ?? null;
+
+    // Refresh statuses for all heats we know about
+    const { data: heats } = await sb
+      .from('heats')
+      .select('id, status')
+      .in('id', allHeats.map(h => h.id));
+    if (heats) {
+      heats.forEach(h => {
+        const i = allHeats.findIndex(a => a.id === h.id);
+        if (i >= 0) allHeats[i].status = h.status;
+      });
+    }
+
+    // Re-render current view (no viewIndex change)
+    showHeat(viewIndex);
+  }
+
+  // Realtime: immediate push when heat status or active heat changes
+  sb.channel('track-live')
+    .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'heats' },
+        payload => {
+          const i = allHeats.findIndex(h => h.id === payload.new.id);
+          if (i >= 0) { allHeats[i].status = payload.new.status; showHeat(viewIndex); }
+        })
+    .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'race_state' },
+        payload => {
+          if (payload.new.id === 1) { currentHeatId = payload.new.current_heat_id; showHeat(viewIndex); }
+        })
+    .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'heat_results' },
+        () => refreshState())
+    .subscribe();
+
+  // Fallback poll every 15 s in case Realtime misses an event
+  setInterval(refreshState, 15000);
 
   init();
 </script>
