@@ -117,34 +117,36 @@
       position: fixed; inset: 0;
       display: grid; grid-template-columns: 1fr 1fr;
     }
-    .split-panel { display: flex; flex-direction: column; padding: 48px 40px; overflow: hidden; }
+    .split-panel { display: flex; flex-direction: column; padding: 24px 28px; overflow: hidden; }
     .split-panel:first-child { border-right: 1px solid var(--border); }
-    .split-panel-label { font-size: 0.7rem; font-weight: 900; letter-spacing: 5px; text-transform: uppercase; color: var(--amber); margin-bottom: 28px; flex-shrink: 0; }
-    .split-panel-rows  { display: flex; flex-direction: column; gap: 10px; overflow: hidden; flex: 1; }
+    .split-panel-label { font-size: 0.7rem; font-weight: 900; letter-spacing: 5px; text-transform: uppercase; color: var(--amber); margin-bottom: 16px; flex-shrink: 0; }
+    .split-panel-rows  { display: flex; flex-direction: column; gap: clamp(6px, 1.2vh, 14px); overflow: hidden; flex: 1; }
     .sp-lane-row {
-      display: grid; grid-template-columns: 48px 1fr;
-      align-items: center; gap: 14px;
+      display: grid; grid-template-columns: 56px 1fr;
+      align-items: center; gap: 16px;
       background: var(--card); border: 1px solid var(--border);
-      border-radius: 12px; padding: 12px 16px;
+      border-radius: 12px; padding: 16px 20px;
+      flex: 1;
     }
-    .sp-lane-num  { font-size: 1rem; font-weight: 900; color: var(--muted); text-align: center; }
-    .sp-lane-name { font-size: 1.4rem; font-weight: 800; }
-    .sp-lane-car  { font-size: 0.75rem; color: var(--amber); font-weight: 600; }
+    .sp-lane-num  { font-size: clamp(1.2rem, 2.2vw, 2.2rem); font-weight: 900; color: var(--muted); text-align: center; }
+    .sp-lane-name { font-size: clamp(2rem, 3.2vw, 3.4rem); font-weight: 800; }
+    .sp-lane-car  { font-size: clamp(0.8rem, 1.1vw, 1.1rem); color: var(--amber); font-weight: 600; }
     .sp-sb-row {
-      display: grid; grid-template-columns: 40px 1fr auto;
+      display: grid; grid-template-columns: 44px 1fr auto;
       align-items: center; gap: 12px;
       background: var(--card); border: 1px solid var(--border);
-      border-radius: 12px; padding: 10px 14px;
+      border-radius: 12px; padding: 14px 18px;
+      flex: 1;
     }
     .sp-sb-row.rank-1 { border-color: var(--gold); }
     .sp-sb-row.rank-2 { border-color: var(--silver); }
     .sp-sb-row.rank-3 { border-color: var(--bronze); }
-    .sp-rank { font-size: 1.05rem; font-weight: 900; color: var(--muted); text-align: center; }
+    .sp-rank { font-size: clamp(1rem, 1.4vw, 1.4rem); font-weight: 900; color: var(--muted); text-align: center; }
     .sp-sb-row.rank-1 .sp-rank { color: var(--gold); }
     .sp-sb-row.rank-2 .sp-rank { color: var(--silver); }
     .sp-sb-row.rank-3 .sp-rank { color: var(--bronze); }
-    .sp-name { font-size: 1.25rem; font-weight: 800; text-align: left; }
-    .sp-pts  { font-size: 0.8rem; font-weight: 700; color: var(--amber); }
+    .sp-name { font-size: clamp(1.4rem, 2vw, 2.2rem); font-weight: 800; text-align: left; }
+    .sp-pts  { font-size: clamp(0.8rem, 1vw, 1rem); font-weight: 700; color: var(--amber); }
 
     /* ── Idle ── */
     .idle-msg { font-size: 1.3rem; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; color: var(--muted); }
@@ -207,9 +209,17 @@
 
   // ── Interval handles ──────────────────────────────────────────
   let _timerInterval = null, _stopwatchInterval = null, _liveInterval = null;
+  let _gSlidesBaseUrl = '', _gSlidesIndex = 1;
   function clearAllIntervals() {
     clearInterval(_timerInterval); clearInterval(_stopwatchInterval); clearInterval(_liveInterval);
     _timerInterval = _stopwatchInterval = _liveInterval = null;
+  }
+
+  // ── Google Slides renderer ────────────────────────────────────
+  function _renderGSlides() {
+    const url = _gSlidesBaseUrl.replace(/[&?]slide=\d+/, '') + '&slide=' + _gSlidesIndex;
+    document.getElementById('slide').innerHTML =
+      `<iframe src="${url}" style="position:fixed;inset:0;width:100vw;height:100vh;border:none;z-index:10;" allowfullscreen></iframe>`;
   }
 
   // ── Slide renderer ─────────────────────────────────────────────
@@ -295,10 +305,17 @@
         break;
 
       case 'gslides': {
-        const url = esc(data.url || '');
+        _gSlidesBaseUrl = data.url || '';
+        _gSlidesIndex = 1;
         clearAllIntervals();
-        document.getElementById('slide').innerHTML =
-          `<iframe src="${url}" style="position:fixed;inset:0;width:100vw;height:100vh;border:none;z-index:10;" allowfullscreen></iframe>`;
+        _renderGSlides();
+        break;
+      }
+
+      case 'gslides-nav': {
+        if (data.dir === 'next') _gSlidesIndex = Math.max(1, _gSlidesIndex + 1);
+        if (data.dir === 'prev') _gSlidesIndex = Math.max(1, _gSlidesIndex - 1);
+        _renderGSlides();
         break;
       }
     }
@@ -394,26 +411,40 @@
     try {
       const { data: state } = await sb.from('race_state').select('current_heat_id,current_round_id').eq('id',1).single();
 
+      // Fetch active cars first to detect final round (≤4 cars = suspense mode)
+      const { data: cars } = await sb.from('cars').select('id,car_number,kid_name').eq('legal_status','legal').eq('eliminated',false);
+      const isFinal = (cars?.length ?? 0) > 0 && (cars?.length ?? 0) <= 4;
+
+      // Adjust layout: final round = full-width lanes, standings hidden
+      const splitEl = document.querySelector('.split-slide');
+      const standPanel = document.getElementById('splitStandings')?.closest('.split-panel');
+      if (splitEl) splitEl.style.gridTemplateColumns = isFinal ? '1fr' : '';
+      if (standPanel) standPanel.style.display = isFinal ? 'none' : '';
+
       // Lanes
       const lanesEl = document.getElementById('splitLanes');
       if (lanesEl) {
         if (state?.current_heat_id) {
           const { data: entries } = await sb.from('heat_entries')
             .select('lane_number,cars(car_number,kid_name)').eq('heat_id',state.current_heat_id).order('lane_number');
+          const nameStyle = isFinal ? ' style="font-size:clamp(3.5rem,7vw,7rem);"' : '';
+          const numStyle  = isFinal ? ' style="font-size:clamp(2rem,4vw,4rem);"' : '';
+          const carStyle  = isFinal ? ' style="font-size:1.1rem;"' : '';
+          const rowStyle  = isFinal ? ' style="padding:28px 40px;"' : '';
           lanesEl.innerHTML = (entries||[]).map(e => `
-            <div class="sp-lane-row">
-              <div class="sp-lane-num">${e.lane_number}</div>
-              <div><div class="sp-lane-name">${esc(e.cars?.kid_name??'—')}</div><div class="sp-lane-car">Car #${e.cars?.car_number??'—'}</div></div>
+            <div class="sp-lane-row"${rowStyle}>
+              <div class="sp-lane-num"${numStyle}>${e.lane_number}</div>
+              <div><div class="sp-lane-name"${nameStyle}>${esc(e.cars?.kid_name??'—')}</div><div class="sp-lane-car"${carStyle}>Car #${e.cars?.car_number??'—'}</div></div>
             </div>`).join('') || `<div style="color:var(--muted)">No active heat</div>`;
         } else {
           lanesEl.innerHTML = `<div style="color:var(--muted)">Waiting for next heat…</div>`;
         }
       }
 
-      // Standings
+      // Standings (not shown in final round — suspense!)
+      if (isFinal) return;
       const standEl = document.getElementById('splitStandings');
       if (!standEl) return;
-      const { data: cars } = await sb.from('cars').select('id,car_number,kid_name').eq('legal_status','legal').eq('eliminated',false);
       if (!cars?.length) { standEl.innerHTML = `<div style="color:var(--muted)">No standings yet</div>`; return; }
       const pts = {}; cars.forEach(c => pts[c.id]=0);
       if (state?.current_round_id) {
@@ -425,7 +456,7 @@
             .forEach(([id,p])=>{ if(id&&pts[id]!==undefined) pts[id]+=p; });
         });
       }
-      const sorted = cars.map(c=>({...c,pts:pts[c.id]??0})).sort((a,b)=>a.pts-b.pts||a.car_number-b.car_number).slice(0,8);
+      const sorted = cars.map(c=>({...c,pts:pts[c.id]??0})).sort((a,b)=>a.pts-b.pts||a.car_number-b.car_number).slice(0,6);
       const medals = ['🥇','🥈','🥉'];
       standEl.innerHTML = sorted.map((c,i)=>`
         <div class="sp-sb-row${i<3?` rank-${i+1}`:''}">
