@@ -504,18 +504,6 @@
       }
       await sb.from('rounds').update({ status: 'completed', advance_count: advCount }).eq('id', roundId);
       await startRound(advancing, roundNumber + 1);
-
-      // Broadcast advancing cars to the display screen
-      sb.channel('podium-control').send({
-        type: 'broadcast',
-        event: 'advance',
-        payload: {
-          mode: 'advance',
-          round_number: roundNumber + 1,
-          cars: advancing.map(c => ({ car_number: c.car_number, kid_name: c.kid_name }))
-        }
-      });
-
       toast(`Round ${roundNumber + 1} started!`);
       loadPage();
     } catch (err) {
@@ -613,6 +601,22 @@
     if (_podiumStep >= 3) {
       document.getElementById('podiumStatus').textContent = '🏆 Ceremony complete!';
       document.getElementById('podiumNextBtn').style.display = 'none';
+
+      // Broadcast celebration scroll with ALL cars
+      const { data: eliminated } = await sb.from('cars')
+        .select('car_number, kid_name')
+        .eq('eliminated', true)
+        .order('car_number');
+
+      sb.channel('podium-control').send({
+        type: 'broadcast',
+        event: 'podium',
+        payload: {
+          mode: 'celebration',
+          topCars:    window._podiumCars.map((c, i) => ({ rank: i+1, car_number: c.car_number, kid_name: c.kid_name })),
+          eliminated: eliminated || []
+        }
+      });
     }
   }
 

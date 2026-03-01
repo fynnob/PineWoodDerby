@@ -278,62 +278,6 @@
       .ln-name { font-size: 2.2rem !important; }
     }
 
-    /* ── Advancing overlay ── */
-    .advance-overlay {
-      position: fixed;
-      inset: 0;
-      background: var(--bg);
-      z-index: 450;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 40px;
-      gap: 10px;
-    }
-    .advance-overlay.active { display: flex; }
-
-    .adv-sub {
-      font-size: 0.85rem;
-      font-weight: 800;
-      letter-spacing: 6px;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    .adv-heading {
-      font-size: 2.6rem;
-      font-weight: 900;
-      color: var(--amber);
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      margin-bottom: 28px;
-    }
-    .adv-cars {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 14px;
-      width: 100%;
-      max-width: 640px;
-    }
-    .adv-car {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 16px 32px;
-      width: 100%;
-      opacity: 0;
-      transform: translateY(24px);
-      transition: opacity 0.5s ease, transform 0.5s ease;
-    }
-    .adv-car.show { opacity: 1; transform: translateY(0); }
-    .adv-car-num  { font-size: 1.8rem; font-weight: 900; color: var(--amber); min-width: 64px; text-align: center; }
-    .adv-car-name { font-size: 1.8rem; font-weight: 700; color: var(--text); flex: 1; text-align: left; }
-
     /* ── Podium overlay ── */
     .podium-overlay {
       position: fixed;
@@ -410,6 +354,70 @@
       max-width: 600px;
       line-height: 1.8;
     }
+
+    /* ── Celebration / credits scroll overlay ── */
+    .celebration-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 600;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      overflow: hidden;
+      padding: 48px 0 0;
+    }
+    .celebration-overlay.active { display: flex; }
+
+    .cel-title {
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 48px;
+      flex-shrink: 0;
+    }
+
+    .cel-scroll-wrap {
+      flex: 1;
+      width: 100%;
+      overflow: hidden;
+      position: relative;
+      mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
+    }
+
+    .cel-scroll {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 32px;
+      padding-bottom: 80px;
+      animation: scrollCredits var(--scroll-dur, 60s) linear 1 forwards;
+    }
+
+    @keyframes scrollCredits {
+      0%   { transform: translateY(100vh); }
+      100% { transform: translateY(-100%); }
+    }
+
+    .cel-entry {
+      text-align: center;
+      line-height: 1.1;
+    }
+    .cel-entry .cel-medal { font-size: 2.4rem; margin-bottom: 4px; }
+    .cel-entry .cel-rank  { font-size: 0.75rem; font-weight: 800; letter-spacing: 3px;
+                            text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .cel-entry .cel-name  { font-size: 3.5rem; font-weight: 900; color: var(--text); }
+    .cel-entry .cel-num   { font-size: 1.1rem; font-weight: 700; color: var(--amber); margin-top: 4px; }
+    .cel-divider {
+      width: 120px; height: 2px; background: var(--border); flex-shrink: 0;
+    }
+    .cel-section-label {
+      font-size: 0.7rem; font-weight: 800; letter-spacing: 4px;
+      text-transform: uppercase; color: var(--muted);
+    }
   </style>
 </head>
 <body>
@@ -456,13 +464,6 @@
 
 </div>
 
-<!-- Advancing-cars overlay -->
-<div class="advance-overlay" id="advanceOverlay">
-  <div class="adv-sub">Still in the Race</div>
-  <div class="adv-heading" id="advHeading">Round 2</div>
-  <div class="adv-cars" id="advCars"></div>
-</div>
-
 <!-- Podium ceremony overlay -->
 <div class="podium-overlay" id="podiumOverlay">
   <div class="podium-title">🏆 Final Results</div>
@@ -489,6 +490,14 @@
   </div>
 
   <div class="podium-rest" id="podiumRest"></div>
+</div>
+
+<!-- Celebration / credits overlay -->
+<div class="celebration-overlay" id="celebrationOverlay">
+  <div class="cel-title">Thank You, Participants!</div>
+  <div class="cel-scroll-wrap">
+    <div class="cel-scroll" id="celScroll"></div>
+  </div>
 </div>
 
 <script src="../config.js"></script>
@@ -636,42 +645,17 @@
     .on('postgres_changes', { event: '*', schema: 'public', table: 'heat_entries' }, refresh)
     .subscribe();
 
-  // ── Podium / advance ceremony listener ─────────────────────────
+  // ── Podium ceremony listener ──────────────────────────────────
   sb.channel('podium-control')
     .on('broadcast', { event: 'podium' }, ({ payload }) => {
       if (!payload || payload.mode !== 'podium') return;
       handlePodium(payload);
     })
-    .on('broadcast', { event: 'advance' }, ({ payload }) => {
-      if (!payload || payload.mode !== 'advance') return;
-      showAdvancing(payload);
-    })
     .subscribe();
 
-  function showAdvancing(data) {
-    const overlay = document.getElementById('advanceOverlay');
-    document.getElementById('advHeading').textContent = `Round ${data.round_number}`;
-    const carsEl = document.getElementById('advCars');
-    carsEl.innerHTML = data.cars.map(c =>
-      `<div class="adv-car">
-        <div class="adv-car-num">#${c.car_number}</div>
-        <div class="adv-car-name">${c.kid_name}</div>
-      </div>`
-    ).join('');
-
-    overlay.classList.add('active');
-
-    // Reveal each car one by one, 1.4 s apart
-    carsEl.querySelectorAll('.adv-car').forEach((card, i) => {
-      setTimeout(() => card.classList.add('show'), 600 + i * 1400);
-    });
-
-    // Auto-dismiss 5 s after the last card appears
-    const total = 600 + data.cars.length * 1400 + 5000;
-    setTimeout(() => overlay.classList.remove('active'), total);
-  }
-
   function handlePodium(data) {
+    if (data.mode === 'celebration') { handleCelebration(data); return; }
+
     const overlay = document.getElementById('podiumOverlay');
     overlay.classList.add('active');
 
@@ -712,6 +696,53 @@
       document.getElementById('pod-label-1').classList.add('revealed');
       document.getElementById('pod-car-1').classList.add('revealed');
     }
+  }
+
+  function handleCelebration(data) {
+    // Hide podium, show celebration
+    document.getElementById('podiumOverlay').classList.remove('active');
+    const overlay = document.getElementById('celebrationOverlay');
+    overlay.classList.add('active');
+
+    const medals = ['🥇','🥈','🥉'];
+    const rankSuffix = n => ['st','nd','rd'][n-1] || 'th';
+
+    let html = '';
+
+    // Top finishers (final round), in ranked order
+    (data.topCars || []).forEach(c => {
+      const medal = medals[c.rank - 1] || '';
+      html += `
+        <div class="cel-entry">
+          ${medal ? `<div class="cel-medal">${medal}</div>` : `<div class="cel-rank">${c.rank}${rankSuffix(c.rank)} Place</div>`}
+          <div class="cel-name">${c.kid_name}</div>
+          <div class="cel-num">Car #${c.car_number}</div>
+        </div>`;
+    });
+
+    // Earlier eliminated cars
+    if (data.eliminated?.length) {
+      html += `<div class="cel-divider"></div>
+               <div class="cel-section-label">Also Competed</div>`;
+      data.eliminated.forEach(c => {
+        html += `
+          <div class="cel-entry">
+            <div class="cel-name">${c.kid_name}</div>
+            <div class="cel-num">Car #${c.car_number}</div>
+          </div>`;
+      });
+    }
+
+    const totalCars = (data.topCars?.length ?? 0) + (data.eliminated?.length ?? 0);
+    const dur = Math.max(30, totalCars * 4);
+    const scroll = document.getElementById('celScroll');
+    scroll.style.setProperty('--scroll-dur', dur + 's');
+    overlay.style.setProperty('--scroll-dur', dur + 's');
+    scroll.innerHTML = html;
+    // Restart animation
+    scroll.style.animation = 'none';
+    scroll.offsetHeight; // reflow
+    scroll.style.animation = '';
   }
 
   // ── Init + poll fallback every 8 s ────────────────────────────
