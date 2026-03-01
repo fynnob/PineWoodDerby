@@ -40,11 +40,56 @@
   <div class="card">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
       <div class="card-title" style="margin:0;">All Cars (<span id="carCount">0</span>)</div>
-      <button class="btn btn-ghost btn-sm" onclick="loadCars()">↻ Refresh</button>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-primary btn-sm" onclick="openAddCar()">+ Add Car</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadCars()">↻ Refresh</button>
+      </div>
     </div>
     <div id="carList"><span class="spinner"></span></div>
   </div>
 
+</div>
+
+<!-- Add Car modal -->
+<div class="confirm-overlay" id="addOverlay">
+  <div class="confirm-box" style="max-width:400px; width:100%;">
+
+    <!-- Entry form -->
+    <div id="addForm">
+      <h3 style="margin-bottom:18px;">Add Car</h3>
+
+      <label>Racer Name</label>
+      <input type="text" id="addName" autocapitalize="words" placeholder="e.g. Jamie Smith" />
+
+      <label style="margin-top:12px;">Photo <span style="font-weight:400; color:var(--muted); text-transform:none;">(recommended)</span></label>
+      <input type="file" id="addPhoto" accept="image/*" capture="environment"
+             style="margin-bottom:10px;" onchange="previewAddPhoto(this)" />
+      <div id="addPreviewWrap" style="display:none; text-align:center; margin-bottom:14px;">
+        <img id="addPreview" src="" alt="preview"
+             style="max-width:100%; max-height:200px; border-radius:10px; border:1px solid var(--border); object-fit:cover;" />
+      </div>
+
+      <p id="addErr" style="color:var(--danger); font-size:0.82rem; min-height:1.2em; margin-bottom:8px;"></p>
+
+      <div class="confirm-btns" style="margin-top:4px;">
+        <button class="btn btn-ghost btn-full" onclick="closeAddCar()">Cancel</button>
+        <button class="btn btn-primary btn-full" id="addSaveBtn" onclick="submitAddCar()">Add Car</button>
+      </div>
+    </div>
+
+    <!-- Success screen -->
+    <div id="addSuccess" style="display:none; text-align:center;">
+      <div style="font-size:2.8rem; margin-bottom:4px;">🏁</div>
+      <h3 style="margin-bottom:6px;">Car Added!</h3>
+      <div id="addSuccessNum" style="font-size:3rem; font-weight:900; color:var(--accent); line-height:1; margin-bottom:4px;"></div>
+      <div id="addSuccessName" style="font-size:1.1rem; font-weight:700; margin-bottom:16px;"></div>
+      <img id="addSuccessImg" src="" alt="" style="display:none; max-width:100%; max-height:180px; border-radius:10px; border:1px solid var(--border); object-fit:cover; margin-bottom:18px;" />
+      <div class="confirm-btns">
+        <button class="btn btn-ghost btn-full" onclick="closeAddCar()">Done</button>
+        <button class="btn btn-primary btn-full" onclick="resetAddForm()">Add Another</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Edit modal -->
@@ -94,6 +139,100 @@
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   let _editId   = null;
   let _deleteId = null;
+
+  // ── Add Car ───────────────────────────────────────────────────
+  function openAddCar() {
+    resetAddForm();
+    document.getElementById('addOverlay').classList.add('open');
+    document.getElementById('addName').focus();
+  }
+
+  function closeAddCar() {
+    document.getElementById('addOverlay').classList.remove('open');
+    loadCars();
+  }
+
+  function resetAddForm() {
+    document.getElementById('addForm').style.display = 'block';
+    document.getElementById('addSuccess').style.display = 'none';
+    document.getElementById('addName').value = '';
+    document.getElementById('addPhoto').value = '';
+    document.getElementById('addPreviewWrap').style.display = 'none';
+    document.getElementById('addPreview').src = '';
+    document.getElementById('addErr').textContent = '';
+    document.getElementById('addSaveBtn').disabled = false;
+    document.getElementById('addSaveBtn').textContent = 'Add Car';
+    document.getElementById('addName').focus();
+  }
+
+  function previewAddPhoto(input) {
+    const file = input.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('addPreview').src = e.target.result;
+      document.getElementById('addPreviewWrap').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function submitAddCar() {
+    const name = document.getElementById('addName').value.trim();
+    if (!name) { document.getElementById('addErr').textContent = 'Racer name is required.'; return; }
+
+    const btn = document.getElementById('addSaveBtn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    document.getElementById('addErr').textContent = '';
+
+    try {
+      // New unique device token so this admin-added car can be looked up at inspection
+      const deviceToken = crypto.randomUUID();
+      let imageUrl = null;
+
+      const photoFile = document.getElementById('addPhoto').files?.[0];
+      if (photoFile) {
+        // Insert first to get the auto-assigned id, then upload with that id as filename
+        const { data: tempCar, error: tErr } = await sb.from('cars')
+          .insert({ kid_name: name, device_token: deviceToken, legal_status: 'legal' })
+          .select().single();
+        if (tErr) throw tErr;
+
+        const ext      = photoFile.name.split('.').pop() || 'jpg';
+        const fileName = `${tempCar.id}.${ext}`;
+        const { error: upErr } = await sb.storage
+          .from('car-images')
+          .upload(fileName, photoFile, { contentType: photoFile.type, upsert: false });
+        if (!upErr) {
+          imageUrl = sb.storage.from('car-images').getPublicUrl(fileName).data.publicUrl;
+          await sb.from('cars').update({ image_url: imageUrl }).eq('id', tempCar.id);
+        }
+
+        showAddSuccess(tempCar.car_number, name, imageUrl);
+        return;
+      }
+
+      // No photo — single insert
+      const { data: car, error } = await sb.from('cars')
+        .insert({ kid_name: name, device_token: deviceToken, legal_status: 'legal' })
+        .select().single();
+      if (error) throw error;
+
+      showAddSuccess(car.car_number, name, null);
+    } catch (err) {
+      document.getElementById('addErr').textContent = 'Error: ' + err.message;
+      btn.disabled = false; btn.textContent = 'Add Car';
+    }
+  }
+
+  function showAddSuccess(carNumber, name, imageUrl) {
+    document.getElementById('addForm').style.display = 'none';
+    document.getElementById('addSuccess').style.display = 'block';
+    document.getElementById('addSuccessNum').textContent = '#' + carNumber;
+    document.getElementById('addSuccessName').textContent = name;
+    const img = document.getElementById('addSuccessImg');
+    if (imageUrl) { img.src = imageUrl; img.style.display = 'block'; }
+    else { img.style.display = 'none'; }
+  }
 
   function toast(msg, ok = true) {
     const el = document.getElementById('toast');
