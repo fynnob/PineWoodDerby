@@ -821,19 +821,60 @@
       document.getElementById('podiumStatus').textContent = '🏆 Ceremony complete!';
       document.getElementById('podiumNextBtn').style.display = 'none';
 
-      // Broadcast celebration scroll with ALL cars
-      const { data: eliminated } = await sb.from('cars')
-        .select('car_number, kid_name')
+      // ── Build eliminated list with round + points info ──────
+      const { data: elCars } = await sb.from('cars')
+        .select('id, car_number, kid_name')
         .eq('eliminated', true)
         .order('car_number');
+
+      const elIds = (elCars || []).map(c => c.id);
+      let eliminatedWithRound = [];
+
+      if (elIds.length) {
+        // Find the last round each car appeared in
+        const { data: entryRounds } = await sb
+          .from('heat_entries')
+          .select('car_id, heats!inner(round_id, rounds!inner(round_number))')
+          .in('car_id', elIds);
+
+        const lastRoundOf = {};
+        (entryRounds || []).forEach(e => {
+          const rn  = e.heats?.rounds?.round_number ?? 0;
+          const rid = e.heats?.round_id;
+          if (!lastRoundOf[e.car_id] || rn > lastRoundOf[e.car_id].round_number) {
+            lastRoundOf[e.car_id] = { round_number: rn, round_id: rid };
+          }
+        });
+
+        // Compute points per car in their elimination round
+        const roundIds = [...new Set(Object.values(lastRoundOf).map(v => v.round_id).filter(Boolean))];
+        const ptsInRound = {};
+        if (roundIds.length) {
+          const { data: roundResults } = await sb
+            .from('heat_results')
+            .select('first_place_car, second_place_car, third_place_car, fourth_place_car, heats!inner(round_id)')
+            .in('heats.round_id', roundIds);
+          (roundResults || []).forEach(r => {
+            [[r.first_place_car,1],[r.second_place_car,2],[r.third_place_car,3],[r.fourth_place_car,4]]
+              .forEach(([id, pts]) => { if (id) ptsInRound[id] = (ptsInRound[id] ?? 0) + pts; });
+          });
+        }
+
+        eliminatedWithRound = elCars.map(c => ({
+          car_number:     c.car_number,
+          kid_name:       c.kid_name,
+          eliminatedRound: lastRoundOf[c.id]?.round_number ?? 0,
+          points:          ptsInRound[c.id] ?? 999
+        }));
+      }
 
       sb.channel('podium-control').send({
         type: 'broadcast',
         event: 'podium',
         payload: {
-          mode: 'celebration',
-          topCars:    window._podiumCars.map((c, i) => ({ rank: i+1, car_number: c.car_number, kid_name: c.kid_name })),
-          eliminated: eliminated || []
+          mode:      'celebration',
+          topCars:   window._podiumCars.map((c, i) => ({ rank: i+1, car_number: c.car_number, kid_name: c.kid_name })),
+          eliminated: eliminatedWithRound
         }
       });
     }

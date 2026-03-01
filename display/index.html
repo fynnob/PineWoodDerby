@@ -391,17 +391,45 @@
     }
 
     .cel-scroll {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 32px;
-      padding-bottom: 80px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 40px;
+      row-gap: 28px;
+      padding: 0 48px 80px;
+      width: 100%;
       animation: scrollCredits var(--scroll-dur, 60s) linear 1 forwards;
     }
 
     @keyframes scrollCredits {
       0%   { transform: translateY(100vh); }
       100% { transform: translateY(-100%); }
+    }
+
+    /* Top finishers & round labels span the full width */
+    .cel-entry.is-top,
+    .cel-round-header {
+      grid-column: 1 / -1;
+    }
+
+    .cel-round-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 8px;
+    }
+    .cel-round-header-line {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .cel-round-header-label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--amber);
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .cel-entry {
@@ -411,15 +439,9 @@
     .cel-entry .cel-medal { font-size: 2.4rem; margin-bottom: 4px; }
     .cel-entry .cel-rank  { font-size: 0.75rem; font-weight: 800; letter-spacing: 3px;
                             text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
-    .cel-entry .cel-name  { font-size: 3.5rem; font-weight: 900; color: var(--text); }
-    .cel-entry .cel-num   { font-size: 1.1rem; font-weight: 700; color: var(--amber); margin-top: 4px; }
-    .cel-divider {
-      width: 120px; height: 2px; background: var(--border); flex-shrink: 0;
-    }
-    .cel-section-label {
-      font-size: 0.7rem; font-weight: 800; letter-spacing: 4px;
-      text-transform: uppercase; color: var(--muted);
-    }
+    .cel-entry.is-top .cel-name  { font-size: 3.5rem; font-weight: 900; color: var(--text); }
+    .cel-entry.is-elim .cel-name { font-size: 2rem;   font-weight: 800; color: var(--text); }
+    .cel-entry .cel-num   { font-size: 1rem; font-weight: 700; color: var(--amber); margin-top: 4px; }
   </style>
 </head>
 <body>
@@ -711,27 +733,54 @@
 
     let html = '';
 
-    // Top finishers (final round), in ranked order
+    // ── Top finishers — full-width, big names ──
     (data.topCars || []).forEach(c => {
       const medal = medals[c.rank - 1] || '';
       html += `
-        <div class="cel-entry">
+        <div class="cel-entry is-top">
           ${medal ? `<div class="cel-medal">${medal}</div>` : `<div class="cel-rank">${c.rank}${rankSuffix(c.rank)} Place</div>`}
           <div class="cel-name">${c.kid_name}</div>
           <div class="cel-num">Car #${c.car_number}</div>
         </div>`;
     });
 
-    // Earlier eliminated cars
+    // ── Eliminated cars grouped by elimination round (desc) ──
     if (data.eliminated?.length) {
-      html += `<div class="cel-divider"></div>
-               <div class="cel-section-label">Also Competed</div>`;
-      data.eliminated.forEach(c => {
+      // Group by eliminatedRound
+      const groups = {};
+      (data.eliminated).forEach(c => {
+        const r = c.eliminatedRound ?? 0;
+        if (!groups[r]) groups[r] = [];
+        groups[r].push(c);
+      });
+
+      // Sort rounds descending (higher round = advanced further = shown first)
+      const sortedRounds = Object.keys(groups)
+        .map(Number)
+        .sort((a, b) => b - a);
+
+      sortedRounds.forEach(roundNum => {
+        // Section divider
+        const label = roundNum > 0 ? `Made it to Round ${roundNum}` : 'Also Competed';
         html += `
-          <div class="cel-entry">
-            <div class="cel-name">${c.kid_name}</div>
-            <div class="cel-num">Car #${c.car_number}</div>
+          <div class="cel-round-header">
+            <div class="cel-round-header-line"></div>
+            <div class="cel-round-header-label">${label}</div>
+            <div class="cel-round-header-line"></div>
           </div>`;
+
+        // Sort within group by points ascending (lower = better), then car_number
+        const group = groups[roundNum].slice().sort((a, b) =>
+          (a.points ?? 999) - (b.points ?? 999) || a.car_number - b.car_number
+        );
+
+        group.forEach(c => {
+          html += `
+            <div class="cel-entry is-elim">
+              <div class="cel-name">${c.kid_name}</div>
+              <div class="cel-num">Car #${c.car_number}</div>
+            </div>`;
+        });
       });
     }
 

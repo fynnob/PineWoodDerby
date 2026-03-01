@@ -67,6 +67,26 @@
     <button class="btn btn-primary btn-full" onclick="pushText()">Show on Screen</button>
   </div>
 
+  <!-- ── Countdown Timer ───────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">Countdown Timer</div>
+    <div style="display:flex; gap:10px; align-items:center; margin-bottom:12px;">
+      <div style="flex:1; text-align:center;">
+        <label style="display:block; font-size:0.72rem; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--muted2); margin-bottom:4px;">Minutes</label>
+        <input type="number" id="timerMins" min="0" max="99" value="3"
+               style="width:100%; text-align:center; font-size:2rem; font-weight:900; padding:8px;" />
+      </div>
+      <div style="font-size:2.5rem; font-weight:900; padding-top:18px; color:var(--accent2);">:</div>
+      <div style="flex:1; text-align:center;">
+        <label style="display:block; font-size:0.72rem; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--muted2); margin-bottom:4px;">Seconds</label>
+        <input type="number" id="timerSecs" min="0" max="59" value="0"
+               style="width:100%; text-align:center; font-size:2rem; font-weight:900; padding:8px;" />
+      </div>
+    </div>
+    <button class="btn btn-gold btn-full" onclick="startTimer()">⏱ Start Timer</button>
+    <button class="btn btn-ghost btn-full" style="margin-top:8px;" onclick="pushSlide({type:'idle'})">⏹ Stop &amp; Clear</button>
+  </div>
+
   <!-- ── Upload + Push Image ───────────────────────────────── -->
   <div class="card">
     <div class="card-title">Push Image</div>
@@ -139,6 +159,14 @@
     const msg = document.getElementById('announceText').value.trim();
     if (!msg) { toast('Enter some text first.', false); return; }
     pushSlide({ type: 'text', message: msg });
+  }
+
+  function startTimer() {
+    const mins = parseInt(document.getElementById('timerMins').value) || 0;
+    const secs = parseInt(document.getElementById('timerSecs').value) || 0;
+    const total = mins * 60 + secs;
+    if (total <= 0) { toast('Set a time greater than 0.', false); return; }
+    pushSlide({ type: 'timer', seconds: total });
   }
 
   // ── Image upload ──────────────────────────────────────────────

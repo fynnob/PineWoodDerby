@@ -84,6 +84,24 @@
     .rc-name      { font-size: 3rem; font-weight: 900; line-height: 1; margin-bottom: 8px; }
     .rc-num       { font-size: 1rem; font-weight: 700; color: var(--amber); }
 
+    /* Timer slide */
+    .slide-timer {
+      font-size: clamp(8rem, 22vw, 18rem);
+      font-weight: 900;
+      letter-spacing: -4px;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      color: var(--text);
+      transition: color 0.4s;
+    }
+    .slide-timer.done { color: var(--amber); }
+    .timer-colon {
+      color: var(--amber);
+      display: inline-block;
+      animation: colonBlink 1s step-end infinite;
+    }
+    @keyframes colonBlink { 50% { opacity: 0.25; } }
+
     /* Re-race banner */
     #reraceBanner {
       display: none; position: fixed; inset: 0; z-index: 999;
@@ -133,12 +151,41 @@
     return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  // ── Countdown timer state ─────────────────────────────────────
+  let _timerInterval = null;
+
   function setSlide(html) {
+    clearInterval(_timerInterval);  // stop any running countdown
     const el = document.getElementById('slide');
     el.style.animation = 'none';
     el.offsetHeight; // reflow
     el.style.animation = '';
     el.innerHTML = html;
+  }
+
+  // ── Countdown timer ───────────────────────────────────────────
+  function startCountdown(totalSeconds) {
+    function render(s) {
+      const m   = String(Math.floor(s / 60)).padStart(2, '0');
+      const sec = String(s % 60).padStart(2, '0');
+      const el  = document.getElementById('slide');
+      if (!el) return;
+      const isDone = s <= 0;
+      el.innerHTML = `<div class="slide-timer${isDone ? ' done' : ''}">${m}<span class="timer-colon">:</span>${sec}</div>`;
+    }
+    // Write HTML directly (bypassing setSlide to keep the timer element stable)
+    const el = document.getElementById('slide');
+    el.style.animation = 'none'; el.offsetHeight; el.style.animation = '';
+    render(totalSeconds);
+    let remaining = totalSeconds;
+    clearInterval(_timerInterval);
+    if (remaining > 0) {
+      _timerInterval = setInterval(() => {
+        remaining--;
+        render(remaining);
+        if (remaining <= 0) clearInterval(_timerInterval);
+      }, 1000);
+    }
   }
 
   function showSlide(data) {
@@ -166,6 +213,10 @@
 
     } else if (data.type === 'race') {
       loadRaceView();
+
+    } else if (data.type === 'timer') {
+      clearInterval(_timerInterval);
+      startCountdown(data.seconds || 0);
     }
   }
 
