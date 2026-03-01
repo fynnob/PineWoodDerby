@@ -4,3 +4,4 @@ derby.db-shm
 derby.db-wal
 
 
+supabase/.temp/
