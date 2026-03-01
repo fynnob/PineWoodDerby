@@ -218,8 +218,19 @@
   // ── Google Slides renderer ────────────────────────────────────
   function _renderGSlides() {
     const url = _gSlidesBaseUrl.replace(/[&?]slide=\d+/, '') + '&slide=' + _gSlidesIndex;
-    document.getElementById('slide').innerHTML =
-      `<iframe src="${url}" style="position:fixed;inset:0;width:100vw;height:100vh;border:none;z-index:10;" allowfullscreen></iframe>`;
+    const slideEl = document.getElementById('slide');
+    // Reuse existing iframe instead of destroying/recreating it — avoids black screen on nav
+    let ifr = slideEl.querySelector('.gslides-ifr');
+    if (!ifr) {
+      slideEl.innerHTML = `
+        <div style="position:fixed;inset:0;z-index:10;">
+          <iframe class="gslides-ifr" allowfullscreen
+            style="position:absolute;inset:0;width:100%;height:100%;border:none;"></iframe>
+          <div style="position:absolute;bottom:0;left:0;right:0;height:52px;background:#0b0d14;z-index:2;pointer-events:none;"></div>
+        </div>`;
+      ifr = slideEl.querySelector('.gslides-ifr');
+    }
+    ifr.src = url;
   }
 
   // ── Slide renderer ─────────────────────────────────────────────
