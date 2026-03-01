@@ -436,12 +436,15 @@
     });
 
     // Standings — fetch points for all legal cars to rank everyone
-    const [{ data: results }, { data: allActive }] = await Promise.all([
+    const [{ data: results }, { data: allActive }, { data: myCarData }] = await Promise.all([
       sb.from('heat_results')
         .select('first_place_car, second_place_car, third_place_car, fourth_place_car, heats!inner(round_id)')
         .eq('heats.round_id', state.current_round_id),
-      sb.from('cars').select('id').eq('eliminated', false)
+      sb.from('cars').select('id').eq('eliminated', false),
+      sb.from('cars').select('id, eliminated').in('id', myCars.map(c => c.id))
     ]);
+
+    const eliminatedSet = new Set((myCarData || []).filter(c => c.eliminated).map(c => c.id));
 
     const pts = {};
     (allActive || []).forEach(c => pts[c.id] = 0);
@@ -460,6 +463,19 @@
     const totalRanked = sorted.length;
 
     el.innerHTML = myCars.map(car => {
+      // ── Eliminated car ────────────────────────────────────────
+      if (eliminatedSet.has(car.id)) {
+        return `
+          <div style="display:flex; align-items:center; gap:14px; padding:13px 0; border-bottom:1px solid var(--border); opacity:0.55;">
+            <div style="font-size:2rem; font-weight:900; color:var(--muted2); min-width:40px; text-align:center; text-decoration:line-through;">#${car.car_number}</div>
+            <div style="flex:1;">
+              <div style="font-weight:700; color:var(--muted2); text-decoration:line-through;">${car.kid_name}</div>
+              <div style="font-size:0.82rem; color:#dc2626; font-weight:700; margin-top:3px;">Eliminated — thanks for racing!</div>
+            </div>
+            <div style="background:#dc2626; color:#fff; padding:5px 12px; border-radius:8px; font-size:0.75rem; font-weight:900; letter-spacing:1px; white-space:nowrap;">OUT</div>
+          </div>`;
+      }
+
       const away = heatAwayFor[car.id];
       let heatLine;
       if (away === undefined)    heatLine = 'Done for this round';

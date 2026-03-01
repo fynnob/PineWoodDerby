@@ -110,6 +110,19 @@
 
 </div>
 
+<!-- Re-race confirm modal -->
+<div class="confirm-overlay" id="reraceOverlay">
+  <div class="confirm-box" style="max-width:380px; width:100%; text-align:center;">
+    <div style="font-size:2.2rem; font-weight:900; color:var(--danger); letter-spacing:2px; margin-bottom:8px;">⚠ RE-RACE</div>
+    <div id="reraceModalLabel" style="font-size:1.4rem; font-weight:800; margin-bottom:12px;"></div>
+    <p style="font-size:0.9rem; color:var(--muted2); margin-bottom:20px;">All entered results will be cleared and the heat will be reset for re-running.</p>
+    <div class="confirm-btns">
+      <button class="btn btn-ghost btn-full" onclick="document.getElementById('reraceOverlay').classList.remove('open')">Cancel</button>
+      <button class="btn btn-full" style="background:var(--danger);color:#fff;" onclick="confirmRerace()">⚠ Confirm</button>
+    </div>
+  </div>
+</div>
+
 <!-- Edit Heat Results modal -->
 <div class="confirm-overlay" id="editHeatOverlay">
   <div class="confirm-box" style="max-width:420px; width:100%;">
@@ -132,6 +145,8 @@
 
   let currentHeatId = null;
   let currentRoundId = null;
+  let currentRoundNum = '?';
+  let currentHeatNum  = '?';
   let heatEntries   = [];  // [{lane_number, car_id, car_number, kid_name}]
   let quickTapOrder = [];
   let currentMode   = 'quick';
@@ -176,8 +191,10 @@
       document.getElementById('existingCard').style.display = 'none';
       document.getElementById('noHeatMsg').style.display    = 'block';
     } else {
+      currentRoundNum = round?.round_number ?? '?';
+      currentHeatNum  = heat?.heat_number  ?? '?';
       document.getElementById('heatLabel').textContent =
-        `Round ${round?.round_number ?? '?'} — Heat ${heat?.heat_number ?? '?'}`;
+        `Round ${currentRoundNum} — Heat ${currentHeatNum}`;
       document.getElementById('noHeatMsg').style.display = 'none';
 
       // Fetch entries
@@ -333,12 +350,17 @@
   }
 
   // ── Re-race ───────────────────────────────────────────────────
-  async function reraceHeat() {
+  function reraceHeat() {
     if (!currentHeatId) { toast('No active heat.', false); return; }
-    if (!confirm('Mark current heat for re-race? Any entered results will be cleared.')) return;
+    document.getElementById('reraceModalLabel').textContent = `Round ${currentRoundNum} — Heat ${currentHeatNum}`;
+    document.getElementById('reraceOverlay').classList.add('open');
+  }
+
+  async function confirmRerace() {
+    document.getElementById('reraceOverlay').classList.remove('open');
     await sb.from('heat_results').delete().eq('heat_id', currentHeatId);
     await sb.from('heats').update({ status: 'active' }).eq('id', currentHeatId);
-    sb.channel('rerace-control').send({ type: 'broadcast', event: 'rerace', payload: {} });
+    sb.channel('rerace-control').send({ type: 'broadcast', event: 'rerace', payload: { round: currentRoundNum, heat: currentHeatNum } });
     toast('Re-race signalled!');
     loadPage();
   }

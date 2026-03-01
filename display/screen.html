@@ -83,6 +83,7 @@
 
 <div id="reraceBanner">
   ⚠ RE-RACE
+  <div id="reraceBannerLabel" style="font-size:1.5rem; font-weight:800; letter-spacing:3px; margin-top:10px;"></div>
   <small style="margin-top:12px;">Please reset the track</small>
 </div>
 
@@ -132,36 +133,9 @@
     }
   }
 
-  async function loadRaceView() {
-    setSlide(`<div class="idle-msg">Loading race…</div>`);
-
-    const { data: state } = await sb.from('race_state')
-      .select('current_heat_id, heats(heat_number, rounds(round_number))')
-      .eq('id', 1).single();
-
-    if (!state?.current_heat_id) {
-      setSlide(`<div class="idle-msg">No active heat.</div>`); return;
-    }
-
-    const { data: entries } = await sb.from('heat_entries')
-      .select('lane_number, cars(car_number, kid_name)')
-      .eq('heat_id', state.current_heat_id)
-      .order('lane_number');
-
-    const round = state.heats?.rounds?.round_number ?? '?';
-    const heatN = state.heats?.heat_number ?? '?';
-    const borderColors = ['#ffd700','#b8bec8','#cd7f32','#4f8ef7'];
-
-    setSlide(`
-      <div class="race-header">Round ${round} &mdash; Heat ${heatN}</div>
-      <div class="race-grid">
-        ${(entries || []).map((e, i) => `
-          <div class="race-card" style="border-top: 5px solid ${borderColors[i] || '#444'};">
-            <div class="rc-lane-lbl">Lane ${e.lane_number}</div>
-            <div class="rc-name">${esc(e.cars?.kid_name ?? '—')}</div>
-            <div class="rc-num">Car #${e.cars?.car_number ?? '—'}</div>
-          </div>`).join('')}
-      </div>`);
+  function loadRaceView() {
+    // Show the full live display in a full-screen iframe
+    setSlide(`<iframe src="../display/index.html" style="position:fixed; inset:0; width:100vw; height:100vh; border:none; z-index:10;"></iframe>`);
   }
 
   // ── Listen for announcer slides ──────────────────────────────
@@ -171,8 +145,11 @@
 
   // ── Listen for re-race ───────────────────────────────────────
   sb.channel('rerace-control')
-    .on('broadcast', { event: 'rerace' }, () => {
+    .on('broadcast', { event: 'rerace' }, ({ payload }) => {
       const banner = document.getElementById('reraceBanner');
+      const lbl    = document.getElementById('reraceBannerLabel');
+      lbl.textContent = (payload?.round != null)
+        ? `Round ${payload.round} — Heat ${payload.heat}` : '';
       banner.classList.add('show');
       setTimeout(() => banner.classList.remove('show'), 7000);
     })
