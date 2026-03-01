@@ -126,10 +126,11 @@
   <div id="tab-message" class="tab-panel">
     <div class="card">
       <div class="card-title">Text Announcement</div>
-      <input type="text" id="msgHeadline" placeholder="Headline…"
-             style="width:100%; margin-bottom:8px;" />
-      <input type="text" id="msgSubtitle" placeholder="Subtitle (optional)…"
-             style="width:100%; margin-bottom:12px;" />
+      <p style="font-size:0.78rem; color:var(--muted2); margin-bottom:8px;">HTML supported — use <code>&lt;br&gt;</code>, <code>&lt;img src="…"&gt;</code>, inline <code>style="…"</code>, etc.</p>
+      <textarea id="msgHeadline" placeholder="Headline… (HTML allowed)" rows="3"
+             style="width:100%; font-family:monospace; font-size:0.85rem; resize:vertical; margin-bottom:8px;"></textarea>
+      <textarea id="msgSubtitle" placeholder="Subtitle (optional, HTML allowed)" rows="2"
+             style="width:100%; font-family:monospace; font-size:0.85rem; resize:vertical; margin-bottom:12px;"></textarea>
       <button class="btn btn-primary btn-full" onclick="pushMsg()">Show on Screen</button>
     </div>
     <div class="card">
@@ -145,10 +146,10 @@
           <input type="color" id="colorFg" value="#ffffff" class="color-swatch" />
         </div>
       </div>
-      <input type="text" id="colorMsg" placeholder="Headline…"
-             style="width:100%; margin-bottom:8px;" />
-      <input type="text" id="colorSub" placeholder="Subtitle (optional)…"
-             style="width:100%; margin-bottom:12px;" />
+      <textarea id="colorMsg" placeholder="Headline… (HTML allowed)" rows="3"
+             style="width:100%; font-family:monospace; font-size:0.85rem; resize:vertical; margin-bottom:8px;"></textarea>
+      <textarea id="colorSub" placeholder="Subtitle (optional, HTML allowed)" rows="2"
+             style="width:100%; font-family:monospace; font-size:0.85rem; resize:vertical; margin-bottom:12px;"></textarea>
       <button class="btn btn-primary btn-full" onclick="pushColorText()">Show on Screen</button>
     </div>
   </div>

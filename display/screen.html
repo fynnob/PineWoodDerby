@@ -252,8 +252,8 @@
 
       case 'text':
         setSlide(`
-          <div class="slide-headline">${esc(data.message)}</div>
-          ${data.subtitle ? `<div class="slide-subtitle">${esc(data.subtitle)}</div>` : ''}`);
+          <div class="slide-headline">${data.message??''}</div>
+          ${data.subtitle ? `<div class="slide-subtitle">${data.subtitle}</div>` : ''}`);
         break;
 
       case 'color-text': {
@@ -263,8 +263,8 @@
         const el = document.getElementById('slide');
         el.style.animation = 'none'; el.offsetHeight; el.style.animation = '';
         el.innerHTML = `<div class="slide-color-bg" style="background:${bg};color:${color};">
-          <div class="slide-headline" style="color:${color};">${esc(data.message)}</div>
-          ${data.subtitle ? `<div class="slide-subtitle" style="color:${color};opacity:0.75;">${esc(data.subtitle)}</div>` : ''}
+          <div class="slide-headline" style="color:${color};">${data.message??''}</div>
+          ${data.subtitle ? `<div class="slide-subtitle" style="color:${color};opacity:0.75;">${data.subtitle}</div>` : ''}
         </div>`;
         break;
       }
