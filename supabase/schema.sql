@@ -30,6 +30,8 @@ $$;
 -- Migrate existing tables: swap qr_token → device_token if needed
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS device_token TEXT NOT NULL DEFAULT gen_random_uuid()::TEXT;
 ALTER TABLE cars DROP COLUMN IF EXISTS qr_token;
+-- Parent email for registration confirmation
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS email TEXT;
 
 DROP TRIGGER IF EXISTS trg_car_number ON cars;
 CREATE TRIGGER trg_car_number
@@ -91,6 +93,9 @@ CREATE TABLE IF NOT EXISTS race_state (
 );
 
 INSERT INTO race_state (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- Email toggle — enables/disables sending confirmation emails on registration
+ALTER TABLE race_state ADD COLUMN IF NOT EXISTS email_enabled BOOLEAN NOT NULL DEFAULT false;
 
 
 -- ── Current-round standings view ──────────────────────────────
