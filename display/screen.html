@@ -46,8 +46,27 @@
     /* Text slide */
     .slide-text { font-size: 5rem; font-weight: 900; line-height: 1.15; max-width: 1300px; }
 
-    /* Image slide */
-    .slide-image img { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 20px; }
+    /* Image slide — fills entire viewport */
+    .slide-image {
+      position: fixed; inset: 0; width: 100vw; height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .slide-image img {
+      width: 100vw; height: 100vh;
+      object-fit: cover;
+      object-position: center;
+    }
+
+    /* Fullscreen button */
+    #fsBtn {
+      position: fixed; bottom: 18px; right: 18px; z-index: 998;
+      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25);
+      color: #fff; border-radius: 8px; padding: 7px 10px;
+      font-size: 1.1rem; line-height: 1; cursor: pointer;
+      backdrop-filter: blur(4px);
+      transition: background 0.2s;
+    }
+    #fsBtn:hover { background: rgba(255,255,255,0.22); }
 
     /* Registration slide */
     .reg-title    { font-size: 3.5rem; font-weight: 900; color: var(--amber); margin-bottom: 16px; }
@@ -81,6 +100,8 @@
   <div class="idle-msg">Waiting for announcer…</div>
 </div>
 
+<button id="fsBtn" title="Toggle fullscreen" onclick="toggleFS()">⛶</button>
+
 <div id="reraceBanner">
   ⚠ RE-RACE
   <div id="reraceBannerLabel" style="font-size:1.5rem; font-weight:800; letter-spacing:3px; margin-top:10px;"></div>
@@ -92,6 +113,19 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ── Fullscreen toggle ─────────────────────────────────────────
+  function toggleFS() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen();
+    }
+  }
+  document.addEventListener('fullscreenchange', () => {
+    document.getElementById('fsBtn').textContent =
+      document.fullscreenElement ? '✕' : '⛶';
+  });
 
   function esc(s) {
     return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
