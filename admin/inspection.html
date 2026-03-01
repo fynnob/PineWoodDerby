@@ -148,8 +148,8 @@
 
   <!-- Manual token entry -->
   <div style="position:fixed;bottom:14px;left:14px;z-index:50;display:flex;gap:8px;">
-    <input type="text" id="tokenInput" placeholder="Token…"
-           style="width:120px;margin:0;padding:8px 12px;font-size:0.82rem;border-radius:100px;background:rgba(0,0,0,.7);border:1px solid #444;color:#fff;backdrop-filter:blur(8px);" />
+    <input type="text" id="tokenInput" placeholder="Code (e.g. XKDN)"
+           style="width:150px;margin:0;padding:8px 12px;font-size:0.82rem;border-radius:100px;background:rgba(0,0,0,.7);border:1px solid #444;color:#fff;backdrop-filter:blur(8px);text-transform:uppercase;letter-spacing:2px;" />
     <button onclick="manualLookup()" style="background:rgba(0,0,0,.7);backdrop-filter:blur(8px);color:#fff;border:1px solid #444;border-radius:100px;padding:8px 14px;font-size:0.82rem;font-weight:700;cursor:pointer;">Go</button>
   </div>
 
@@ -219,12 +219,47 @@
   });
   // ── Manual entry ───────────────────────────────────────────────
   function manualLookup() {
-    const t = document.getElementById('tokenInput').value.trim();
-    if (t) { lastToken = t; lastScanAt = Date.now(); lookupToken(t); document.getElementById('tokenInput').value = ''; }
+    const t = document.getElementById('tokenInput').value.trim().toUpperCase();
+    if (!t) return;
+    document.getElementById('tokenInput').value = '';
+    // 4-letter short code → resolve to full device_token first
+    if (/^[A-Z]{4}$/.test(t)) {
+      resolveShortCode(t);
+    } else {
+      lastToken = t; lastScanAt = Date.now(); lookupToken(t);
+    }
   }
   document.getElementById('tokenInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') manualLookup();
   });
+
+  // Same hash function used in parent page to derive 4-letter code
+  function tokenToShortCode(token) {
+    let hash = 0;
+    for (let i = 0; i < token.length; i++) {
+      hash = ((hash << 5) - hash) + token.charCodeAt(i);
+      hash |= 0;
+    }
+    hash = Math.abs(hash);
+    const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    let code = '';
+    for (let i = 0; i < 4; i++) {
+      code += letters[hash % letters.length];
+      hash = Math.floor(hash / letters.length);
+    }
+    return code;
+  }
+
+  async function resolveShortCode(shortCode) {
+    // Fetch all distinct device_tokens, find which one hashes to this code
+    const { data, error } = await sb.from('cars').select('device_token');
+    if (error || !data?.length) { toast('No cars in database.', false); return; }
+    const unique = [...new Set(data.map(r => r.device_token))];
+    const match  = unique.find(t => tokenToShortCode(t) === shortCode);
+    if (!match) { toast(`No family found for code "${shortCode}".`, false); return; }
+    lastToken = match; lastScanAt = Date.now(); lookupToken(match);
+  }
+
   // ── Token lookup ──────────────────────────────────────────────
   async function lookupToken(token) {
     const { data: cars, error } = await sb
