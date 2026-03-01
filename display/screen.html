@@ -389,7 +389,7 @@
             .forEach(([id,p]) => { if (id && pts[id]!==undefined) pts[id]+=p; });
         });
       }
-      const sorted = cars.map(c=>({...c,pts:pts[c.id]??0})).sort((a,b)=>a.pts-b.pts||a.car_number-b.car_number).slice(0,10);
+      const sorted = cars.map(c=>({...c,pts:pts[c.id]??0})).sort((a,b)=>a.pts-b.pts||a.car_number-b.car_number);
       const medals = ['🥇','🥈','🥉'];
       const rows = sorted.map((c,i) => `
         <div class="sb-row${i<3?` rank-${i+1}`:''}">
