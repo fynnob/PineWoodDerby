@@ -504,6 +504,18 @@
       }
       await sb.from('rounds').update({ status: 'completed', advance_count: advCount }).eq('id', roundId);
       await startRound(advancing, roundNumber + 1);
+
+      // Broadcast advancing cars to the display screen
+      sb.channel('podium-control').send({
+        type: 'broadcast',
+        event: 'advance',
+        payload: {
+          mode: 'advance',
+          round_number: roundNumber + 1,
+          cars: advancing.map(c => ({ car_number: c.car_number, kid_name: c.kid_name }))
+        }
+      });
+
       toast(`Round ${roundNumber + 1} started!`);
       loadPage();
     } catch (err) {

@@ -278,6 +278,62 @@
       .ln-name { font-size: 2.2rem !important; }
     }
 
+    /* ── Advancing overlay ── */
+    .advance-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 450;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 40px;
+      gap: 10px;
+    }
+    .advance-overlay.active { display: flex; }
+
+    .adv-sub {
+      font-size: 0.85rem;
+      font-weight: 800;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .adv-heading {
+      font-size: 2.6rem;
+      font-weight: 900;
+      color: var(--amber);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+    }
+    .adv-cars {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      max-width: 640px;
+    }
+    .adv-car {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px 32px;
+      width: 100%;
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+    .adv-car.show { opacity: 1; transform: translateY(0); }
+    .adv-car-num  { font-size: 1.8rem; font-weight: 900; color: var(--amber); min-width: 64px; text-align: center; }
+    .adv-car-name { font-size: 1.8rem; font-weight: 700; color: var(--text); flex: 1; text-align: left; }
+
     /* ── Podium overlay ── */
     .podium-overlay {
       position: fixed;
@@ -398,6 +454,13 @@
     </div>
   </div>
 
+</div>
+
+<!-- Advancing-cars overlay -->
+<div class="advance-overlay" id="advanceOverlay">
+  <div class="adv-sub">Still in the Race</div>
+  <div class="adv-heading" id="advHeading">Round 2</div>
+  <div class="adv-cars" id="advCars"></div>
 </div>
 
 <!-- Podium ceremony overlay -->
@@ -573,13 +636,40 @@
     .on('postgres_changes', { event: '*', schema: 'public', table: 'heat_entries' }, refresh)
     .subscribe();
 
-  // ── Podium ceremony listener ──────────────────────────────────
+  // ── Podium / advance ceremony listener ─────────────────────────
   sb.channel('podium-control')
     .on('broadcast', { event: 'podium' }, ({ payload }) => {
       if (!payload || payload.mode !== 'podium') return;
       handlePodium(payload);
     })
+    .on('broadcast', { event: 'advance' }, ({ payload }) => {
+      if (!payload || payload.mode !== 'advance') return;
+      showAdvancing(payload);
+    })
     .subscribe();
+
+  function showAdvancing(data) {
+    const overlay = document.getElementById('advanceOverlay');
+    document.getElementById('advHeading').textContent = `Round ${data.round_number}`;
+    const carsEl = document.getElementById('advCars');
+    carsEl.innerHTML = data.cars.map(c =>
+      `<div class="adv-car">
+        <div class="adv-car-num">#${c.car_number}</div>
+        <div class="adv-car-name">${c.kid_name}</div>
+      </div>`
+    ).join('');
+
+    overlay.classList.add('active');
+
+    // Reveal each car one by one, 1.4 s apart
+    carsEl.querySelectorAll('.adv-car').forEach((card, i) => {
+      setTimeout(() => card.classList.add('show'), 600 + i * 1400);
+    });
+
+    // Auto-dismiss 5 s after the last card appears
+    const total = 600 + data.cars.length * 1400 + 5000;
+    setTimeout(() => overlay.classList.remove('active'), total);
+  }
 
   function handlePodium(data) {
     const overlay = document.getElementById('podiumOverlay');
