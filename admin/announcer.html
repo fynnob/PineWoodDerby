@@ -96,15 +96,6 @@
 
 <div class="container">
 
-  <!-- ── Screen URL (compact) ── -->
-  <div class="card" style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
-    <div id="screenQR" style="flex-shrink:0;"></div>
-    <div style="flex:1; min-width:180px;">
-      <div class="card-title" style="margin-bottom:6px;">Display Screen URL</div>
-      <div id="screenUrlText" style="font-size:0.8rem; font-weight:700; color:var(--accent2); word-break:break-all; margin-bottom:10px;"></div>
-      <a id="screenLink" href="" target="_blank" class="btn btn-ghost btn-sm">Open Screen ↗</a>
-    </div>
-  </div>
 
   <!-- ── Tab strip ── -->
   <div class="tab-strip" role="tablist">
@@ -231,6 +222,17 @@
         Auto-refreshes every 10 seconds while showing.
       </p>
       <button class="btn btn-primary btn-full" onclick="pushSlide({type:'scoreboard'})">Show Scoreboard</button>
+      <div style="margin-top:14px;">
+        <div class="card-title" style="font-size:0.72rem; margin-bottom:8px;">Scroll Scoreboard</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <button class="btn btn-full" id="sbScrollUp"
+            style="font-size:1.4rem; padding:14px;"
+            onpointerdown="startScroll('up')" onpointerup="stopScroll()" onpointerleave="stopScroll()">&#8593;</button>
+          <button class="btn btn-full" id="sbScrollDown"
+            style="font-size:1.4rem; padding:14px;"
+            onpointerdown="startScroll('down')" onpointerup="stopScroll()" onpointerleave="stopScroll()">&#8595;</button>
+        </div>
+      </div>
     </div>
     <div class="card">
       <div class="card-title">⬛⬛ Split View</div>
@@ -287,12 +289,7 @@
   // ── Screen URL ────────────────────────────────────────────────
   const screenUrl = location.href.replace('admin/announcer.html', 'display/screen.html');
   const regUrl    = location.href.replace('admin/announcer.html', 'index.html');
-  document.getElementById('screenUrlText').textContent = screenUrl;
-  document.getElementById('screenLink').href = screenUrl;
-  new QRCode(document.getElementById('screenQR'), {
-    text: screenUrl, width: 120, height: 120,
-    colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.H
-  });
+
 
   // ── Now Showing ───────────────────────────────────────────────
   const SLIDE_LABELS = {
@@ -385,6 +382,17 @@
     document.getElementById('gSlidesCounter').textContent = `Slide ${_localSlidesIndex}`;
     setNowShowing('gslides', `Slide ${_localSlidesIndex}`);
     toast('Navigated!');
+  }
+
+  // ── Scoreboard scroll ────────────────────────────────────────────────────
+  let _scrollTimer = null;
+  function startScroll(dir) {
+    sendScroll(dir);
+    _scrollTimer = setInterval(() => sendScroll(dir), 300);
+  }
+  function stopScroll() { clearInterval(_scrollTimer); _scrollTimer = null; }
+  function sendScroll(dir) {
+    ch.send({ type: 'broadcast', event: 'scroll', payload: { dir } });
   }
 
   // ── Image upload ──────────────────────────────────────────────

@@ -94,7 +94,8 @@
     /* ── Scoreboard slide ── */
     .scoreboard-slide { width: 100%; max-width: 860px; max-height: calc(100vh - 120px); display: flex; flex-direction: column; }
     .sb-header { font-size: 0.75rem; font-weight: 900; letter-spacing: 5px; text-transform: uppercase; color: var(--amber); margin-bottom: 28px; }
-    .sb-rows { display: flex; flex-direction: column; gap: 12px; flex: 1; overflow: hidden; }
+    .sb-rows { display: flex; flex-direction: column; gap: 12px; flex: 1; overflow-y: auto; scroll-behavior: smooth; scrollbar-width: none; }
+    .sb-rows::-webkit-scrollbar { display: none; }
     .sb-row {
       display: grid; grid-template-columns: 56px 1fr auto;
       align-items: center; gap: 20px;
@@ -457,23 +458,28 @@
       const standEl = document.getElementById('splitStandings');
       if (!standEl) return;
       if (!cars?.length) { standEl.innerHTML = `<div style="color:var(--muted)">No standings yet</div>`; return; }
-      const pts = {}; cars.forEach(c => pts[c.id]=0);
+      const pts = {}, races = {};
+      cars.forEach(c => { pts[c.id]=0; races[c.id]=0; });
       if (state?.current_round_id) {
         const { data: res } = await sb.from('heat_results')
           .select('first_place_car,second_place_car,third_place_car,fourth_place_car,heats!inner(round_id)')
           .eq('heats.round_id',state.current_round_id);
         (res||[]).forEach(r=>{
           [[r.first_place_car,1],[r.second_place_car,2],[r.third_place_car,3],[r.fourth_place_car,4]]
-            .forEach(([id,p])=>{ if(id&&pts[id]!==undefined) pts[id]+=p; });
+            .forEach(([id,p])=>{ if(id&&pts[id]!==undefined){ pts[id]+=p; races[id]++; } });
         });
       }
-      const sorted = cars.map(c=>({...c,pts:pts[c.id]??0})).sort((a,b)=>a.pts-b.pts||a.car_number-b.car_number).slice(0,6);
+      // Only show cars that have raced (>0 races), ranked by avg pts (lower = better)
+      const raced = cars.filter(c => races[c.id] > 0)
+        .map(c=>({...c, pts:pts[c.id], races:races[c.id], avg:pts[c.id]/races[c.id]}))
+        .sort((a,b)=>a.avg-b.avg||a.car_number-b.car_number).slice(0,6);
+      if (!raced.length) { standEl.innerHTML = `<div style="color:var(--muted)">No heats run yet</div>`; return; }
       const medals = ['🥇','🥈','🥉'];
-      standEl.innerHTML = sorted.map((c,i)=>`
+      standEl.innerHTML = raced.map((c,i)=>`
         <div class="sp-sb-row${i<3?` rank-${i+1}`:''}">
           <div class="sp-rank">${medals[i]||i+1}</div>
           <div class="sp-name">${esc(c.kid_name)}</div>
-          <div class="sp-pts">${state?.current_round_id?`${c.pts}p`:'—'}</div>
+          <div class="sp-pts">${c.races}r&nbsp;·&nbsp;${c.avg.toFixed(1)}avg</div>
         </div>`).join('');
     } catch(e) { console.error('Split',e); }
   }
@@ -481,6 +487,10 @@
   // ── Realtime listeners ────────────────────────────────────────
   sb.channel('announcer-control')
     .on('broadcast', { event: 'slide' }, ({ payload }) => showSlide(payload))
+    .on('broadcast', { event: 'scroll' }, ({ payload }) => {
+      const el = document.querySelector('.sb-rows');
+      if (el) el.scrollBy({ top: payload.dir === 'down' ? 140 : -140, behavior: 'smooth' });
+    })
     .subscribe();
 
   sb.channel('rerace-control')
