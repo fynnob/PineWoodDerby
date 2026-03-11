@@ -1,4 +1,4 @@
-THIS IS THE PRIVATE VERSION FOR MY PACK USE https://github.com/fynnob/PineWoodDerby-OpenSoucre INSTEAD!
+THIS IS THE PRIVATE VERSION FOR MY PACK USE https://github.com/fynnob/PineWoodDerby-OpenSource INSTEAD!
 
 # 🏎️ Pinewood Derby Race Day App
 
