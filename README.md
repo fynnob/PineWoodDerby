@@ -1,3 +1,5 @@
+THIS IS THE PRIVATE VERSION FOR MY PACK USE https://github.com/fynnob/PineWoodDerby-OpenSoucre INSTEAD!
+
 # 🏎️ Pinewood Derby Race Day App
 
 A complete race management app for Cub Scout Pinewood Derby — built for mobile, designed for projector displays, zero installs required for parents.
