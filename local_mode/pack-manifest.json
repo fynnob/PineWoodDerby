@@ -28,7 +28,6 @@
     "local_mode/run.py",
     "local_mode/server.py",
     "local_mode/hotspot.py",
-    "local_mode/__init__.py",
     "local_mode/schema.sql",
     "local_mode/requirements.txt",
     "local_mode/pack-manifest.json"
