@@ -81,6 +81,37 @@
     </div>
   </div>
 
+  <!-- ── Local Mode ── -->
+  <div class="card">
+    <div class="card-title">🧰 Local Mode (Offline Pack)</div>
+    <p style="font-size:0.85rem; color:var(--muted2); margin-bottom:14px; line-height:1.6;">
+      Local Mode prepares a downloadable pack for running Pinewood Derby fully on a laptop
+      with a local SQLite database and Python server.
+    </p>
+
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:14px;">
+      <div>
+        <div style="font-weight:700; margin-bottom:4px;">Local mode status</div>
+        <div id="localModeStatusText" style="font-size:0.82rem; color:var(--muted2);">Loading…</div>
+      </div>
+      <button id="localModeBtn" class="btn btn-primary" onclick="toggleLocalMode()" style="min-width:88px;">Turn ON</button>
+    </div>
+
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn btn-gold" id="downloadLocalPackBtn" onclick="downloadLocalModePack()">⬇️ Download Local Mode Pack</button>
+      <button class="btn btn-ghost" onclick="showLocalModeSteps()">How to run</button>
+    </div>
+
+    <div id="localModeSteps" style="display:none; margin-top:12px; padding:12px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface2);">
+      <ol style="font-size:0.82rem; color:var(--muted2); line-height:1.8; padding-left:20px; margin:0;">
+        <li>Download and unzip the Local Mode pack on your laptop.</li>
+        <li>Run: <code>python3 local_mode/setup.py</code></li>
+        <li>Run: <code>python3 local_mode/run.py --hotspot</code></li>
+        <li>Open <code>http://localhost:8000</code> on the host laptop.</li>
+      </ol>
+    </div>
+  </div>
+
   <!-- ── Deployment Notes ── -->
   <div class="card">
     <div class="card-title">🚀 Edge Function Setup</div>
@@ -107,6 +138,7 @@
 
 <script src="../config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -116,6 +148,7 @@
     clearTimeout(el._t); el._t = setTimeout(() => el.className = '', 3000);
   }
 
+  const LOCAL_MODE_KEY = 'derby_local_mode';
   let _emailEnabled = false;
 
   async function loadSettings() {
@@ -128,6 +161,7 @@
       console.error(e);
       document.getElementById('emailStatusText').textContent = 'Could not load — run schema update first.';
     }
+    renderLocalModeToggle();
   }
 
   function renderEmailToggle() {
@@ -160,6 +194,75 @@
     } catch (e) {
       toast('Save failed: ' + e.message, false);
       btn.disabled = false;
+    }
+  }
+
+  function isLocalModeOn() {
+    return localStorage.getItem(LOCAL_MODE_KEY) === '1';
+  }
+
+  function renderLocalModeToggle() {
+    const on = isLocalModeOn();
+    const btn = document.getElementById('localModeBtn');
+    const txt = document.getElementById('localModeStatusText');
+    if (!btn || !txt) return;
+    btn.textContent = on ? 'Turn OFF' : 'Turn ON';
+    btn.className = on ? 'btn btn-danger' : 'btn btn-primary';
+    txt.textContent = on
+      ? '✅ Local Mode is ON — app should use local bundle/runtime.'
+      : '⏸ Local Mode is OFF — app uses hosted Supabase mode.';
+  }
+
+  function toggleLocalMode() {
+    const next = !isLocalModeOn();
+    localStorage.setItem(LOCAL_MODE_KEY, next ? '1' : '0');
+    renderLocalModeToggle();
+    toast(next ? 'Local Mode ON (device setting).' : 'Local Mode OFF (device setting).');
+  }
+
+  function showLocalModeSteps() {
+    const el = document.getElementById('localModeSteps');
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  }
+
+  async function downloadLocalModePack() {
+    const btn = document.getElementById('downloadLocalPackBtn');
+    btn.disabled = true;
+    const old = btn.textContent;
+    btn.textContent = 'Preparing ZIP…';
+
+    try {
+      const mfRes = await fetch('../local_mode/pack-manifest.json', { cache: 'no-store' });
+      if (!mfRes.ok) throw new Error('Could not load local pack manifest');
+      const manifest = await mfRes.json();
+
+      const zip = new JSZip();
+      const rootDir = zip.folder(manifest.bundleName || 'PineWoodDerby-LocalMode');
+      const files = manifest.files || [];
+
+      for (let i = 0; i < files.length; i++) {
+        const path = files[i];
+        btn.textContent = `Adding ${i + 1}/${files.length}…`;
+        const res = await fetch('../' + path, { cache: 'no-store' });
+        if (!res.ok) throw new Error('Missing file in bundle: ' + path);
+        const content = await res.arrayBuffer();
+        rootDir.file(path, content);
+      }
+
+      btn.textContent = 'Compressing…';
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${manifest.bundleName || 'PineWoodDerby-LocalMode'}.zip`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast('Local Mode pack downloaded.');
+    } catch (e) {
+      console.error(e);
+      toast('Local pack download failed: ' + (e.message || e), false);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = old;
     }
   }
 

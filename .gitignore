@@ -3,5 +3,9 @@ derby.db
 derby.db-shm
 derby.db-wal
 
+# Local mode generated artifacts
+local_data/
+local_mode/.venv/
+**/__pycache__/
 
 supabase/.temp/

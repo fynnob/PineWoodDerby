@@ -1,0 +1,33 @@
+{
+  "bundleName": "PineWoodDerby-LocalMode",
+  "files": [
+    "index.html",
+    "styles.css",
+    "config.js",
+    "reset_db.py",
+    "README.md",
+
+    "admin/index.html",
+    "admin/inspection.html",
+    "admin/track.html",
+    "admin/results.html",
+    "admin/cars.html",
+    "admin/announcer.html",
+    "admin/settings.html",
+    "admin/scoreboard.html",
+    "admin/rounds.html",
+
+    "display/index.html",
+    "display/screen.html",
+
+    "supabase/schema.sql",
+
+    "local_mode/setup.py",
+    "local_mode/run.py",
+    "local_mode/server.py",
+    "local_mode/hotspot.py",
+    "local_mode/schema.sql",
+    "local_mode/requirements.txt",
+    "local_mode/pack-manifest.json"
+  ]
+}
