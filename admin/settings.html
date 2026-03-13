@@ -253,8 +253,19 @@
           }
           throw new Error('Missing file in bundle: ' + path);
         }
-        const content = await res.arrayBuffer();
-        rootDir.file(path, content);
+        
+        // Intercept config.js to permanently enable local mode in the download bundle
+        if (path === 'config.js') {
+          let textContent = await res.text();
+          textContent = textContent.replace(
+            /function\s+isLocalMode\(\)\s*\{[\s\S]*?\}\s*catch\s*\{[\s\S]*?\}\s*\}/,
+            'function isLocalMode() {\\n  return true; // Hardcoded for offline pack\\n}'
+          );
+          rootDir.file(path, textContent);
+        } else {
+          const content = await res.arrayBuffer();
+          rootDir.file(path, content);
+        }
       }
 
       btn.textContent = 'Compressing…';

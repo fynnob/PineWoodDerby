@@ -7,8 +7,8 @@ const SUPABASE_ANON_KEY =
 
 // Local Mode primitives (phase 1 scaffold)
 const LOCAL_MODE_KEY = 'derby_local_mode';
-const LOCAL_API_BASE = (typeof location !== 'undefined')
-  ? `${location.protocol}//${location.hostname}:8000`
+const LOCAL_API_BASE = (typeof location !== 'undefined' && location.host)
+  ? `${location.protocol}//${location.host}`
   : 'http://localhost:8000';
 
 function isLocalMode() {
