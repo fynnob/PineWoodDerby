@@ -447,3 +447,10 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* display/* pages have their own self-contained <style> blocks and do not use styles.css */
+
+/* Local Mode Overrides */
+body.is-local-mode a[href*='settings.html'] { display: none \!important; }
+
+/* Local Mode Overrides */
+body.is-local-mode a[href*="settings.html"] { display: none !important; }
+body.is-local-mode .hide-in-local { display: none !important; }

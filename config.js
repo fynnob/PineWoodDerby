@@ -23,6 +23,14 @@ function _localBase() {
   return LOCAL_API_BASE.replace(/\/$/, '');
 }
 
+if (typeof window !== 'undefined') {
+  window.addEventListener('DOMContentLoaded', () => {
+    if (isLocalMode()) {
+      document.body.classList.add('is-local-mode');
+    }
+  });
+}
+
 async function _localFetchJson(path, options = {}) {
   const res = await fetch(_localBase() + path, options);
   const body = await res.json().catch(() => ({}));
@@ -187,6 +195,21 @@ class LocalChannel {
         const events = out.events || [];
         for (const ev of events) {
           this.lastEventId = Math.max(this.lastEventId, ev.id || 0);
+
+          if (ev.channel === '__postgres_changes__') {
+            for (const h of this.handlers) {
+              if (h.type !== 'postgres_changes') continue;
+              if (h.filter?.table && h.filter.table !== ev.payload.table) continue;
+              if (h.filter?.event && h.filter.event !== '*' && h.filter.event !== ev.payload.type) continue;
+              h.callback({
+                eventType: ev.payload.type,
+                new: ev.payload.new || {},
+                old: ev.payload.old || {}
+              });
+            }
+            continue;
+          }
+
           if (ev.channel !== this.name) continue;
           for (const h of this.handlers) {
             if (h.type !== 'broadcast') continue;
@@ -195,12 +218,6 @@ class LocalChannel {
           }
         }
 
-        if (this.lastDbVersion !== -1 && dbVersion !== this.lastDbVersion) {
-          for (const h of this.handlers) {
-            if (h.type !== 'postgres_changes') continue;
-            h.callback({ new: {}, old: {}, eventType: h.filter?.event || '*' });
-          }
-        }
         this.lastDbVersion = dbVersion;
       } catch {
       }

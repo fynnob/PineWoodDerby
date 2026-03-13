@@ -201,22 +201,54 @@
   }
 
   // ── QR scanner (full screen, runs forever) ────────────────────
-  const scanner = new Html5Qrcode('reader');
-  scanner.start(
-    { facingMode: 'environment' },
-    { fps: 10, qrbox: { width: 260, height: 260 } },
-    token => {
-      const now = Date.now();
-      if (token === lastToken && now - lastScanAt < DEBOUNCE) return;
-      lastToken  = token;
-      lastScanAt = now;
-      lookupToken(token.trim());
-    },
-    () => {}
-  ).catch(err => {
-    document.getElementById('reader').innerHTML =
-      `<div style="color:#fff;padding:32px;text-align:center;">Camera unavailable — ${err.message}</div>`;
-  });
+  if (!isLocalMode()) {
+    const scanner = new Html5Qrcode('reader');
+    scanner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 260, height: 260 } },
+      token => {
+        const now = Date.now();
+        if (token === lastToken && now - lastScanAt < DEBOUNCE) return;
+        lastToken  = token;
+        lastScanAt = now;
+        lookupToken(token.trim());
+      },
+      () => {}
+    ).catch(err => {
+      document.getElementById('reader').innerHTML =
+        `<div style="color:#fff;padding:32px;text-align:center;">Camera unavailable — ${err.message}</div>`;
+    });
+  } else {
+    // In local mode, disable camera and make manual entry full screen
+    const entryContainer = document.getElementById('tokenInput').parentElement;
+    entryContainer.style.right = '14px';
+    entryContainer.style.bottom = 'auto';
+    entryContainer.style.top = '50%';
+    entryContainer.style.transform = 'translateY(-50%)';
+    entryContainer.style.flexDirection = 'column';
+    entryContainer.style.alignItems = 'center';
+    entryContainer.style.padding = '32px';
+    entryContainer.style.background = 'var(--panel)';
+    entryContainer.style.borderRadius = '12px';
+    entryContainer.style.boxShadow = '0 8px 32px rgba(0,0,0,0.5)';
+    
+    const tokenInput = document.getElementById('tokenInput');
+    tokenInput.style.fontSize = '2rem';
+    tokenInput.style.textAlign = 'center';
+    tokenInput.style.width = '100%';
+    tokenInput.style.height = '80px';
+    tokenInput.style.textTransform = 'uppercase';
+    
+    // Auto-submit after 4 letters
+    tokenInput.addEventListener('input', (e) => {
+      e.target.value = e.target.value.toUpperCase();
+      if (e.target.value.length === 4) {
+        manualLookup();
+      }
+    });
+
+    document.querySelector('.scan-area').style.display = 'none';
+  }
   // ── Manual entry ───────────────────────────────────────────────
   function manualLookup() {
     const t = document.getElementById('tokenInput').value.trim().toUpperCase();

@@ -16,6 +16,7 @@ DB_PATH = DATA_DIR / "derby_local.db"
 STORAGE_DIR = DATA_DIR / "storage"
 
 DB_VERSION = 0
+DB_CHANGES = []
 EVENT_ID = 0
 EVENTS = []
 EVENT_LOCK = Lock()
@@ -77,9 +78,18 @@ def _push_event(channel: str, event: str, payload: dict | None = None) -> None:
             del EVENTS[: len(EVENTS) - MAX_EVENTS]
 
 
-def _touch_db() -> None:
+def _touch_db(table=None, action=None, record=None) -> None:
     global DB_VERSION
     DB_VERSION += 1
+    if table and action and record:
+        DB_CHANGES.append({
+            "v": DB_VERSION,
+            "table": table,
+            "action": action,
+            "record": record
+        })
+        if len(DB_CHANGES) > 100:
+            DB_CHANGES.pop(0)
 
 
 def _normalize_value(value):
@@ -149,6 +159,13 @@ def _apply_relations(conn: sqlite3.Connection, table: str, select_expr: str, row
                     r = conn.execute("SELECT * FROM rounds WHERE id = ?", (heat_obj["round_id"],)).fetchone()
                     heat_obj["rounds"] = _to_row_dict(r)
                 row["heats"] = heat_obj
+        return rows
+
+    if table == "heats" and "rounds(" in (select_expr or ""):
+        for row in rows:
+            if row.get("round_id"):
+                r = conn.execute("SELECT * FROM rounds WHERE id = ?", (row["round_id"],)).fetchone()
+                row["rounds"] = _to_row_dict(r)
         return rows
 
     if table == "heat_entries" and "cars(" in (select_expr or ""):
@@ -296,16 +313,24 @@ def api_db_query():
                 return jsonify({"data": None, "error": None})
             assignments = ", ".join([f"{k} = ?" for k in write_patch.keys()])
             update_params = list(write_patch.values()) + params
-            if returning:
-                before = _select_rows(conn, table, select_expr, filters, None, None)
-                before_ids = [r.get("id") for r in before if r.get("id")]
+            
+            # ALWAYS fetch before ids so we can broadcast the change
+            before = _select_rows(conn, table, "*", filters, None, None)
+            before_ids = [r.get("id") for r in before if r.get("id")]
+                
             conn.execute(f"UPDATE {table} SET {assignments}{where_sql}", update_params)
             conn.commit()
             _touch_db()
+            
+            if before_ids:
+                placeholders = ",".join(["?"] * len(before_ids))
+                after = _to_rows(conn.execute(f"SELECT * FROM {table} WHERE id IN ({placeholders})", before_ids).fetchall())
+                for row in after:
+                    _push_event("__postgres_changes__", "UPDATE", {"table": table, "new": row})
+                    
             if returning:
                 if not before_ids:
                     return jsonify({"data": [], "error": None})
-                placeholders = ",".join(["?"] * len(before_ids))
                 out = _to_rows(conn.execute(f"SELECT * FROM {table} WHERE id IN ({placeholders})", before_ids).fetchall())
                 out = _apply_relations(conn, table, select_expr, out)
                 return jsonify({"data": out, "error": None})
@@ -313,10 +338,17 @@ def api_db_query():
 
         if op == "delete":
             where_sql, params = _where_clause(filters, table)
+            
+            before = _select_rows(conn, table, "*", filters, None, None)
+            
             deleted = _select_rows(conn, table, select_expr, filters, None, None) if returning else None
             conn.execute(f"DELETE FROM {table}{where_sql}", params)
             conn.commit()
             _touch_db()
+            
+            for row in before:
+                _push_event("__postgres_changes__", "DELETE", {"table": table, "old": row})
+                
             return jsonify({"data": deleted if returning else None, "error": None})
 
         return jsonify({"data": None, "error": {"message": f"Unsupported operation: {op}"}}), 400
