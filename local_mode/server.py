@@ -23,7 +23,7 @@ MAX_EVENTS = 300
 
 BOOL_COLS = {"eliminated", "email_enabled"}
 
-app = Flask(__name__, static_folder=str(ROOT), static_url_path="")
+app = Flask(__name__)
 
 
 def _local_ip() -> str:
@@ -443,9 +443,17 @@ def root_page():
     return send_from_directory(ROOT, "index.html")
 
 
-@app.get("/<path:path>")
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
 def static_proxy(path: str):
-    return send_from_directory(ROOT, path)
+    if not path or path.endswith("/"):
+        path += "index.html"
+    
+    full_path = ROOT / path
+    if full_path.is_dir():
+        path += "/index.html"
+        
+    return send_from_directory(str(ROOT), path)
 
 
 if __name__ == "__main__":

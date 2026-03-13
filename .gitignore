@@ -9,3 +9,4 @@ local_mode/.venv/
 **/__pycache__/
 
 supabase/.temp/
+Download/
