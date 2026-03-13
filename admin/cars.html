@@ -189,7 +189,9 @@
 
     try {
       // New unique device token so this admin-added car can be looked up at inspection
-      const deviceToken = crypto.randomUUID();
+      const deviceToken = (typeof crypto !== 'undefined' && crypto.randomUUID) 
+        ? crypto.randomUUID() 
+        : 'admin-' + Date.now().toString(36) + Math.random().toString(36).slice(2);
       let imageUrl = null;
 
       const photoFile = document.getElementById('addPhoto').files?.[0];
