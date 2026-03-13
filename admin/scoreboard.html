@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Overall Scoreboard — Pinewood Derby</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+
+<!-- PIN gate -->
+<div id="pinGate" style="position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;">
+  <div style="text-align:center;max-width:300px;padding:20px;">
+    <h2 style="margin-bottom:8px;">Admin Access</h2>
+    <p style="margin-bottom:16px;">Enter the 4-digit PIN</p>
+    <input type="tel" id="pinInput" maxlength="4" placeholder="••••" autocomplete="off"
+           style="text-align:center;font-size:2rem;letter-spacing:12px;width:160px;margin:0 auto 16px;display:block;" />
+    <p id="pinErr" style="color:var(--danger);font-size:0.82rem;min-height:1.4em;"></p>
+  </div>
+</div>
+<script>
+(function(){
+  const PIN='2468',KEY='derby_admin_pin';
+  if(localStorage.getItem(KEY)===PIN){document.getElementById('pinGate').style.display='none';}
+  else{document.getElementById('pinInput').addEventListener('input',function(){if(this.value.length===4){if(this.value===PIN){localStorage.setItem(KEY,PIN);document.getElementById('pinGate').style.display='none';}else{document.getElementById('pinErr').textContent='Wrong PIN';this.value='';}}});document.getElementById('pinInput').focus();}
+})();
+</script>
+
+<nav class="top-nav">
+  <span class="brand">Derby</span>
+  <a href="index.html">Hub</a>
+  <a href="inspection.html">Inspection</a>
+  <a href="track.html">Track</a>
+  <a href="results.html">Officials</a>
+  <a href="cars.html">Cars</a>
+  <a href="scoreboard.html" class="active">Scoreboard</a>
+  <a href="announcer.html">Screen</a>
+  <a href="settings.html">⚙ Settings</a>
+</nav>
+
+<div class="container">
+  <div class="page-header" style="margin-top:24px;">
+    <div class="title-block">
+      <h1>Overall Scoreboard</h1>
+      <p>Not-out cars first, then eliminated cars grouped by elimination round (later round ranks higher).</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Final Ranking</div>
+    <div id="scoreboardBody"><span class="spinner"></span></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="../config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  function toast(msg, ok = true) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = ok ? 'show ok' : 'show err';
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.className = '', 3000);
+  }
+
+  function esc(s) {
+    return (s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  }
+
+  async function loadScoreboard() {
+    const body = document.getElementById('scoreboardBody');
+
+    try {
+      const [{ data: cars, error: carsErr }, { data: rounds, error: roundsErr }, { data: results, error: resErr }] = await Promise.all([
+        sb.from('cars').select('id, car_number, kid_name, eliminated, legal_status').order('car_number'),
+        sb.from('rounds').select('id, round_number'),
+        sb.from('heat_results').select('first_place_car, second_place_car, third_place_car, fourth_place_car, heats!inner(round_id)')
+      ]);
+
+      if (carsErr) throw carsErr;
+      if (roundsErr) throw roundsErr;
+      if (resErr) throw resErr;
+
+      const legalCars = (cars || []).filter(c => c.legal_status === 'legal');
+      if (!legalCars.length) {
+        body.innerHTML = '<div class="empty-state">No legal race cars yet.</div>';
+        return;
+      }
+
+      const roundNumById = {};
+      (rounds || []).forEach(r => { roundNumById[r.id] = r.round_number; });
+
+      const statsByCarId = {};
+      legalCars.forEach(c => {
+        statsByCarId[c.id] = {
+          id: c.id,
+          car_number: c.car_number,
+          kid_name: c.kid_name,
+          eliminated: !!c.eliminated,
+          total_points: 0,
+          roundsRaced: new Set(),
+        };
+      });
+
+      (results || []).forEach(r => {
+        const roundId = r.heats?.round_id;
+        const roundNo = roundNumById[roundId];
+        [[r.first_place_car,1],[r.second_place_car,2],[r.third_place_car,3],[r.fourth_place_car,4]].forEach(([carId, pts]) => {
+          const stat = statsByCarId[carId];
+          if (!stat) return;
+          stat.total_points += pts;
+          if (roundNo != null) stat.roundsRaced.add(roundNo);
+        });
+      });
+
+      const ranking = Object.values(statsByCarId).map(s => {
+        const roundList = Array.from(s.roundsRaced);
+        const eliminationRound = s.eliminated && roundList.length ? Math.max(...roundList) : null;
+        return {
+          ...s,
+          eliminationRound,
+          outGroup: s.eliminated ? (eliminationRound ?? -1) : Number.POSITIVE_INFINITY,
+        };
+      })
+      .sort((a, b) => {
+        // Not-out first
+        if (a.eliminated !== b.eliminated) return a.eliminated ? 1 : -1;
+        // Eliminated: later round first (round 3 beats round 2)
+        if (a.eliminated && b.eliminated && a.outGroup !== b.outGroup) return b.outGroup - a.outGroup;
+        // Within same group: lower points is better
+        if (a.total_points !== b.total_points) return a.total_points - b.total_points;
+        return a.car_number - b.car_number;
+      });
+
+      if (!ranking.length) {
+        body.innerHTML = '<div class="empty-state">No standings available.</div>';
+        return;
+      }
+
+      const medals = ['🥇', '🥈', '🥉'];
+      body.innerHTML = ranking.map((c, idx) => {
+        const rank = idx + 1;
+        const rankText = medals[idx] || `${rank}`;
+        const statusText = c.eliminated
+          ? `Out in round ${c.eliminationRound ?? '?'}`
+          : 'Not out';
+
+        return `
+          <div class="leaderboard-row${idx < 3 ? ` rank-${idx + 1}` : ''}">
+            <div class="rank">${rankText}</div>
+            <div class="car-num">#${c.car_number}</div>
+            <div class="name">${esc(c.kid_name)}</div>
+            <div class="pts">${c.total_points} pts · ${statusText}</div>
+          </div>
+        `;
+      }).join('');
+    } catch (err) {
+      console.error(err);
+      body.innerHTML = '<div class="empty-state">Could not load scoreboard.</div>';
+      toast('Scoreboard load failed: ' + (err.message || err), false);
+    }
+  }
+
+  sb.channel('overall-scoreboard')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'cars' }, loadScoreboard)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'heat_results' }, loadScoreboard)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'rounds' }, loadScoreboard)
+    .subscribe();
+
+  loadScoreboard();
+</script>
+</body>
+</html>
