@@ -118,7 +118,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
-  const sb        = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const sb        = createDerbyClient();
   const STORE_KEY  = 'derby_my_cars';
   const TOKEN_KEY  = 'derby_device_token';
 

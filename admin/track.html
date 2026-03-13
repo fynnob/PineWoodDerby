@@ -87,7 +87,7 @@
 <script src="../config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
-  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const sb = createDerbyClient();
 
   let allHeats      = [];  // [{id, heat_number, round_number, status}]
   let viewIndex    = 0;    // index into allHeats we're currently viewing

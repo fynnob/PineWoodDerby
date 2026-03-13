@@ -29,7 +29,10 @@ def main() -> None:
     ensure_setup()
 
     if args.hotspot:
-        from hotspot import start_hotspot
+        try:
+            from .hotspot import start_hotspot
+        except ImportError:
+            from hotspot import start_hotspot
         ok, msg = start_hotspot("PineWoodDerby")
         print(f"[hotspot] {msg}")
         if not ok:
